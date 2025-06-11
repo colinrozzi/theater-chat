@@ -45,21 +45,29 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     return messageIndex;
   }, [messages.length, addMessage]);
 
-  const addToolMessage = useCallback((toolName) => {
+  const addToolMessage = useCallback((toolName, toolArgs) => {
     setMessages(prev => {
       // Find the last pending assistant message
       const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
         .reverse()
         .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
       
+      const toolMessage = { 
+        role: 'tool', 
+        content: toolName, 
+        toolName, 
+        toolArgs, 
+        status: 'complete' 
+      };
+      
       if (lastAssistantIndex !== undefined) {
         // Insert tool message before the pending assistant message
         const newMessages = [...prev];
-        newMessages.splice(lastAssistantIndex, 0, { role: 'tool', content: toolName, status: 'complete' });
+        newMessages.splice(lastAssistantIndex, 0, toolMessage);
         return newMessages;
       } else {
         // Fallback: add at the end
-        return [...prev, { role: 'tool', content: toolName, status: 'complete' }];
+        return [...prev, toolMessage];
       }
     });
   }, []);
@@ -131,8 +139,12 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
                   // Process tool calls first
                   const toolCalls = completion.content.filter(item => item.type === 'tool_use');
                   for (const toolCall of toolCalls) {
-                    const toolDisplayName = getToolDisplayName(toolCall.name, toolCall.input);
-                    addToolMessage(toolDisplayName);
+                    // Convert input object to args array for display
+                    const toolArgs = toolCall.input ? Object.entries(toolCall.input).map(([key, value]) => {
+                      if (typeof value === 'string') return value;
+                      return JSON.stringify(value);
+                    }) : [];
+                    addToolMessage(toolCall.name, toolArgs);
                   }
 
                   // Extract text content (if any)
@@ -408,7 +420,13 @@ function MessageComponent({ message, toolDisplayMode }) {
     <Box flexDirection="column">
       {content && (
         <Box marginBottom={1}>
-          <FormattedContent content={content} role={role} toolDisplayMode={toolDisplayMode} contentColor={contentColor} />
+          <FormattedContent 
+            content={content} 
+            role={role} 
+            toolDisplayMode={toolDisplayMode} 
+            contentColor={contentColor}
+            message={message}
+          />
         </Box>
       )}
     </Box>
@@ -418,10 +436,17 @@ function MessageComponent({ message, toolDisplayMode }) {
 /**
  * Formatted content component
  */
-function FormattedContent({ content, role, toolDisplayMode, contentColor }) {
-  // For tool messages, keep them concise unless in full mode
+function FormattedContent({ content, role, toolDisplayMode, contentColor, message }) {
+  // For tool messages, use the new format
   if (role === 'tool' && toolDisplayMode === 'minimal') {
-    return <Text color="magenta">{content}</Text>;
+    const args = message.toolArgs ? message.toolArgs.join(' ') : '';
+    return (
+      <Box>
+        <Text color="magenta" dimColor>
+          {message.toolName}: {args}
+        </Text>
+      </Box>
+    );
   }
 
   // Split content into lines and render with basic formatting
@@ -436,39 +461,7 @@ function FormattedContent({ content, role, toolDisplayMode, contentColor }) {
   );
 }
 
-/**
- * Get display name for tools
- */
-function getToolDisplayName(toolName, args) {
-  // Provide nice display names for common tools
-  const toolNames = {
-    'read': 'Reading file',
-    'write': 'Writing file',
-    'list': 'Listing directory',
-    'list_allowed_dirs': 'Listing allowed directories',
-    'search': 'Searching files',
-    'edit': 'Editing file',
-    'delete': 'Deleting file',
-    'mkdir': 'Creating directory',
-    'move': 'Moving file',
-    'copy': 'Copying file',
-    'info': 'Getting file info'
-  };
 
-  let baseName = toolNames[toolName] || toolName;
-  
-  // Add argument info for more context when in full mode
-  if (args && typeof args === 'object') {
-    if (args.path) {
-      const filename = args.path.split('/').pop();
-      baseName += ` (${filename})`;
-    } else if (args.pattern) {
-      baseName += ` (${args.pattern})`;
-    }
-  }
-  
-  return baseName;
-}
 
 /**
  * Render the app and handle cleanup
