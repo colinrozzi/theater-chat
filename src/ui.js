@@ -107,60 +107,86 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
                 // Extract stop_reason from the correct location
                 const stopReason = completion?.stop_reason || message?.stop_reason || parsedMessage.message?.stop_reason || parsedMessage.stop_reason;
 
-                let content = 'Empty response';
+                // Check if this completion contains tool calls
                 if (completion?.content) {
-                  // Extract text from completion content array
+                  // Process tool calls first
+                  const toolCalls = completion.content.filter(item => item.type === 'tool_use');
+                  for (const toolCall of toolCalls) {
+                    const toolDisplayName = getToolDisplayName(toolCall.name, toolCall.input);
+                    addMessage('tool', toolDisplayName, 'complete');
+                  }
+
+                  // Extract text content (if any)
                   const textContent = completion.content
                     .filter(item => item.type === 'text')
                     .map(item => item.text)
                     .join('');
-                  content = textContent || 'Empty response';
+
+                  // Only add assistant message if there's text content
+                  if (textContent) {
+                    // Check if we have a pending assistant message to update
+                    setMessages(prev => {
+                      const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
+                        .reverse()
+                        .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
+
+                      if (lastAssistantIndex !== undefined) {
+                        // Update the existing pending message
+                        return prev.map((msg, i) =>
+                          i === lastAssistantIndex
+                            ? { ...msg, content: textContent, status: 'complete' }
+                            : msg
+                        );
+                      } else {
+                        // Add a new assistant message
+                        return [...prev, { role: 'assistant', content: textContent, status: 'complete' }];
+                      }
+                    });
+                  }
                 } else if (message?.content) {
                   // Fallback to Message content
-                  content = message.content;
-                }
-
-                // Check if we have a pending assistant message to update
-                setMessages(prev => {
-                  const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
-                    .reverse()
-                    .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
-
-                  if (lastAssistantIndex !== undefined) {
-                    // Update the existing pending message
-                    return prev.map((msg, i) =>
-                      i === lastAssistantIndex
-                        ? { ...msg, content, status: 'complete' }
-                        : msg
-                    );
-                  } else {
-                    // Add a new assistant message
-                    return [...prev, { role: 'assistant', content, status: 'complete' }];
+                  let content = message.content;
+                  if (Array.isArray(content)) {
+                    content = content.map(item => {
+                      if (item.type === 'text') return item.text;
+                      if (item.type === 'tool_result') return `Tool result: ${JSON.stringify(item.content)}`;
+                      return JSON.stringify(item);
+                    }).join('');
                   }
-                });
+
+                  // Check if we have a pending assistant message to update
+                  setMessages(prev => {
+                    const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
+                      .reverse()
+                      .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
+
+                    if (lastAssistantIndex !== undefined) {
+                      // Update the existing pending message
+                      return prev.map((msg, i) =>
+                        i === lastAssistantIndex
+                          ? { ...msg, content, status: 'complete' }
+                          : msg
+                      );
+                    } else {
+                      // Add a new assistant message
+                      return [...prev, { role: 'assistant', content, status: 'complete' }];
+                    }
+                  });
+                }
 
                 // IMPROVED: Only clear generating state when we receive end_turn or other completion signals
                 if (stopReason === 'end_turn') {
                   setIsGenerating(false);
                 } else if (stopReason === 'stop_sequence' || stopReason === 'max_tokens') {
                   setIsGenerating(false);
+                } else if (stopReason === 'tool_use') {
+                  // Keep generating - we're waiting for tool results and continuation
                 } else if (stopReason) {
                   setIsGenerating(false);
                 } else {
                   // Keep isGenerating=true for intermediate responses
                 }
               }
-            } else if (parsedMessage.type === 'tool_call_delta') {
-              // Tool call - this is an intermediate step, keep generating state
-              const { tool_name, args } = parsedMessage;
-
-              // Get a nice display name for the tool
-              const toolDisplayName = getToolDisplayName(tool_name, args);
-
-              addMessage('tool', `${toolDisplayName}`, 'complete');
-
-
-              // Don't change isGenerating state - we're still in the middle of generation
             }
           } catch (parseError) {
             console.error('Failed to parse message:', parseError);
@@ -400,15 +426,29 @@ function getToolDisplayName(toolName, args) {
     'read': 'Reading file',
     'write': 'Writing file',
     'list': 'Listing directory',
+    'list_allowed_dirs': 'Listing allowed directories',
     'search': 'Searching files',
     'edit': 'Editing file',
     'delete': 'Deleting file',
     'mkdir': 'Creating directory',
     'move': 'Moving file',
-    'copy': 'Copying file'
+    'copy': 'Copying file',
+    'info': 'Getting file info'
   };
 
-  return toolNames[toolName] || `${toolName}`;
+  let baseName = toolNames[toolName] || toolName;
+  
+  // Add argument info for more context when in full mode
+  if (args && typeof args === 'object') {
+    if (args.path) {
+      const filename = args.path.split('/').pop();
+      baseName += ` (${filename})`;
+    } else if (args.pattern) {
+      baseName += ` (${args.pattern})`;
+    }
+  }
+  
+  return baseName;
 }
 
 /**
