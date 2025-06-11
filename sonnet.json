@@ -18,6 +18,13 @@
         ]
       },
       "tools": null
+    },
+    {
+      "actor_id": null,
+      "actor": {
+        "manifest_path": "/Users/colinrozzi/work/actor-registry/git-mcp-actor/manifest.toml"
+      },
+      "tools": null
     }
   ]
 }
