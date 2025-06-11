@@ -1,5 +1,27 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
+import fs from 'fs';
+import path from 'path';
+
+// Set up input-specific logging
+const inputLogFile = path.join(process.cwd(), 'input-box.log');
+
+function logInput(message, level = 'INFO') {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${level}: ${message}\n`;
+  try {
+    fs.appendFileSync(inputLogFile, logMessage);
+  } catch (error) {
+    // Fail silently for logging errors
+  }
+}
+
+// Initialize log file
+try {
+  fs.writeFileSync(inputLogFile, `=== MultiLineInput logging started at ${new Date().toISOString()} ===\n`);
+} catch (error) {
+  // Fail silently
+}
 
 /**
  * Simplified multi-line text input component
@@ -8,8 +30,9 @@ import { Box, Text, useInput } from 'ink';
  * - Enter adds newline, Ctrl+Enter submits
  * - Basic cursor navigation
  * - Simple and reliable
+ * - Comprehensive logging for debugging
  */
-export default function MultiLineInput({ 
+export default function MultiLineInput({
   placeholder = 'Type your message...',
   onSubmit,
   maxHeight = 6,
@@ -19,34 +42,14 @@ export default function MultiLineInput({
   onContentChange
 }) {
   const [cursorPosition, setCursorPosition] = useState(0);
-  
-  // Debug content changes from parent
-  React.useEffect(() => {
-    console.log('📝 CONTENT DEBUG - Content prop changed from parent:', {
-      newContent: JSON.stringify(content),
-      length: content.length,
-      cursorPosition,
-      timestamp: new Date().toISOString()
-    });
-  }, [content]);
-  
-  // Debug cursor position changes
-  React.useEffect(() => {
-    console.log('📍 CURSOR DEBUG - Cursor position changed:', {
-      newPosition: cursorPosition,
-      contentLength: content.length,
-      isValid: cursorPosition <= content.length
-    });
-  }, [cursorPosition, content.length]);
-  
+
+  logInput(`MultiLineInput initialized with content length: ${content.length}, cursor at: ${cursorPosition}`);
+
   // Wrap onContentChange to debug when it's called
   const debugOnContentChange = useCallback((newContent) => {
-    console.log('🔄 CALLBACK DEBUG - onContentChange called:', {
-      newContent: JSON.stringify(newContent),
-      timestamp: new Date().toISOString()
-    });
+    logInput(`Content change: "${content}" -> "${newContent}" (${content.length} -> ${newContent.length} chars)`);
     onContentChange(newContent);
-  }, [onContentChange]);
+  }, [onContentChange, content]);
 
   // Convert content to lines for display
   const lines = content.split('\n');
@@ -65,32 +68,21 @@ export default function MultiLineInput({
 
   // Insert text at cursor
   const insertText = useCallback((text) => {
+    logInput(`Insert text: "${text}" at position ${cursorPosition}`);
     const before = content.slice(0, cursorPosition);
     const after = content.slice(cursorPosition);
     const newContent = before + text + after;
+    const newCursorPos = cursorPosition + text.length;
+
+    logInput(`Insert result: content "${content}" -> "${newContent}", cursor ${cursorPosition} -> ${newCursorPos}`);
     
-    console.log('✏️ INSERT DEBUG - Inserting text:', {
-      text: JSON.stringify(text),
-      before: JSON.stringify(before),
-      after: JSON.stringify(after),
-      newContent: JSON.stringify(newContent),
-      cursorPosition
-    });
-    
-    onContentChange(newContent);
-    setCursorPosition(cursorPosition + text.length);
+    debugOnContentChange(newContent);
+    setCursorPosition(newCursorPos);
   }, [content, cursorPosition, debugOnContentChange]);
 
   // Delete character
   const deleteChar = useCallback((direction = 'backward') => {
-    console.log('🔍 DELETE DEBUG - deleteChar called:', {
-      direction,
-      cursorPosition,
-      contentLength: content.length,
-      content: JSON.stringify(content),
-      canDeleteBackward: direction === 'backward' && cursorPosition > 0,
-      canDeleteForward: direction === 'forward' && cursorPosition < content.length
-    });
+    logInput(`Delete character: direction=${direction}, cursor=${cursorPosition}, content="${content}"`);
 
     if (direction === 'backward' && cursorPosition > 0) {
       // Backspace
@@ -98,15 +90,8 @@ export default function MultiLineInput({
       const after = content.slice(cursorPosition);
       const newContent = before + after;
       const newCursorPos = cursorPosition - 1;
-      
-      console.log('🔍 DELETE DEBUG - Backspace operation:', {
-        before: JSON.stringify(before),
-        after: JSON.stringify(after),
-        newContent: JSON.stringify(newContent),
-        oldCursorPos: cursorPosition,
-        newCursorPos
-      });
-      
+
+      logInput(`Backspace: "${content}" -> "${newContent}", cursor ${cursorPosition} -> ${newCursorPos}`);
       debugOnContentChange(newContent);
       setCursorPosition(newCursorPos);
     } else if (direction === 'forward' && cursorPosition < content.length) {
@@ -114,37 +99,33 @@ export default function MultiLineInput({
       const before = content.slice(0, cursorPosition);
       const after = content.slice(cursorPosition + 1);
       const newContent = before + after;
-      
-      console.log('🔍 DELETE DEBUG - Forward delete operation:', {
-        before: JSON.stringify(before),
-        after: JSON.stringify(after),
-        newContent: JSON.stringify(newContent),
-        cursorPos: cursorPosition
-      });
-      
+
+      logInput(`Forward delete: "${content}" -> "${newContent}", cursor stays at ${cursorPosition}`);
       debugOnContentChange(newContent);
       // Cursor position stays the same
     } else {
-      console.log('🔍 DELETE DEBUG - No delete operation performed (conditions not met)');
+      logInput(`Delete ignored: direction=${direction}, cursor=${cursorPosition}, content.length=${content.length}`);
     }
   }, [content, cursorPosition, debugOnContentChange]);
 
   // Move cursor
   const moveCursor = useCallback((newPos) => {
     const clampedPos = Math.max(0, Math.min(content.length, newPos));
+    logInput(`Move cursor: ${cursorPosition} -> ${newPos} (clamped to ${clampedPos})`);
     setCursorPosition(clampedPos);
-  }, [content.length]);
+  }, [content.length, cursorPosition]);
 
   // Clear input
   const clearInput = useCallback(() => {
-    console.log('🧹 CLEAR DEBUG - Clearing input');
+    logInput(`Clear input: "${content}" -> ""`);
     debugOnContentChange('');
     setCursorPosition(0);
-  }, [debugOnContentChange]);
+  }, [debugOnContentChange, content]);
 
   // Submit handler
   const handleSubmit = useCallback(() => {
     const trimmed = content.trim();
+    logInput(`Submit attempt: content="${content}", trimmed="${trimmed}"`);
     if (trimmed) {
       onSubmit(trimmed);
       clearInput();
@@ -153,30 +134,28 @@ export default function MultiLineInput({
 
   // Key input handler - only active in INSERT mode
   useInput((input, key) => {
-    console.log('⌨️ KEY DEBUG - Key input received:', {
-      input,
-      key: Object.keys(key).filter(k => key[k]).join(', '),
-      mode,
-      cursorPosition,
-      contentLength: content.length
-    });
+    logInput(`Key input: input="${input}", key=${JSON.stringify(key)}, mode=${mode}`);
+
     // Always handle Escape to switch to NORMAL mode
     if (key.escape) {
+      logInput('Mode change: insert -> normal');
       onModeChange('normal');
       return;
     }
 
     // Only handle other keys in INSERT mode
     if (mode !== 'insert') {
+      logInput('Key ignored - not in insert mode');
       return;
     }
 
     // Navigation
     if (key.upArrow) {
+      logInput('Navigation: up arrow');
       const currentLineStart = content.lastIndexOf('\n', cursorPosition - 1);
-      const prevLineStart = currentLineStart > 0 ? 
+      const prevLineStart = currentLineStart > 0 ?
         content.lastIndexOf('\n', currentLineStart - 1) : -1;
-      
+
       if (prevLineStart !== -1) {
         const targetCol = cursorCol;
         const prevLineEnd = currentLineStart;
@@ -188,15 +167,16 @@ export default function MultiLineInput({
     }
 
     if (key.downArrow) {
+      logInput('Navigation: down arrow');
       const currentLineEnd = content.indexOf('\n', cursorPosition);
-      const nextLineEnd = currentLineEnd !== -1 ? 
+      const nextLineEnd = currentLineEnd !== -1 ?
         content.indexOf('\n', currentLineEnd + 1) : -1;
-      
+
       if (currentLineEnd !== -1) {
         const targetCol = cursorCol;
         const nextLineStart = currentLineEnd + 1;
-        const nextLineLength = nextLineEnd !== -1 ? 
-          nextLineEnd - nextLineStart : 
+        const nextLineLength = nextLineEnd !== -1 ?
+          nextLineEnd - nextLineStart :
           content.length - nextLineStart;
         const newPos = nextLineStart + Math.min(targetCol, nextLineLength);
         moveCursor(newPos);
@@ -205,53 +185,73 @@ export default function MultiLineInput({
     }
 
     if (key.leftArrow) {
+      logInput('Navigation: left arrow');
       moveCursor(cursorPosition - 1);
       return;
     }
 
     if (key.rightArrow) {
+      logInput('Navigation: right arrow');
       moveCursor(cursorPosition + 1);
       return;
     }
 
     // Home/End
     if (key.home) {
+      logInput('Navigation: home');
       const lineStart = content.lastIndexOf('\n', cursorPosition - 1) + 1;
       moveCursor(lineStart);
       return;
     }
 
     if (key.end) {
+      logInput('Navigation: end');
       const lineEnd = content.indexOf('\n', cursorPosition);
       moveCursor(lineEnd === -1 ? content.length : lineEnd);
       return;
     }
 
-    // Delete operations
-    // On Mac, the delete key should delete backward (like backspace)
-    // fn+delete would be forward delete, but that's handled differently by the system
-    if (key.delete) {
-      console.log('⌨️ KEY DEBUG - Delete key pressed (treating as backward delete for Mac)');
+    // Delete operations - FIX: Clearer handling of different delete keys
+    if (key.backspace) {
+      logInput('Delete: backspace key detected');
       deleteChar('backward');
       return;
     }
 
-    if (key.backspace) {
-      console.log('⌨️ KEY DEBUG - Backspace key pressed');
+    // On Mac/terminal, key.delete might be the forward delete or might be the same as backspace
+    // Let's be more explicit about this
+    if (key.delete) {
+      logInput('Delete: delete key detected');
+      // Most terminals map "delete" key to backspace behavior
+      // Forward delete is usually fn+delete which shows up differently
       deleteChar('backward');
+      return;
+    }
+
+    // Alternative approach: check for forward delete specifically
+    // This might show up as a different key combination
+    if (key.ctrl && key.name === 'd') {
+      logInput('Delete: Ctrl+D (forward delete)');
+      deleteChar('forward');
       return;
     }
 
     // Enter: New line
     if (key.return) {
+      logInput('Input: return/enter - adding newline');
       insertText('\n');
       return;
     }
 
     // Regular character input
     if (input && !key.ctrl && !key.meta) {
+      logInput(`Input: regular character "${input}"`);
       insertText(input);
+      return;
     }
+
+    // Log unhandled keys
+    logInput(`Unhandled key: input="${input}", key=${JSON.stringify(key)}`);
   });
 
   // Render lines with cursor
@@ -284,7 +284,7 @@ export default function MultiLineInput({
           ) : (
             displayLines.map((line, index) => {
               const isCurrentLine = index === cursorRow && cursorRow < maxHeight;
-              
+
               if (!isCurrentLine) {
                 return <Text key={index}>{line}</Text>;
               }
@@ -297,8 +297,8 @@ export default function MultiLineInput({
               return (
                 <Text key={index}>
                   {beforeCursor}
-                  <Text 
-                    backgroundColor={mode === 'normal' ? 'blue' : 'white'} 
+                  <Text
+                    backgroundColor={mode === 'normal' ? 'blue' : 'white'}
                     color={mode === 'normal' ? 'white' : 'black'}
                   >
                     {atCursor}
@@ -313,7 +313,7 @@ export default function MultiLineInput({
             <Text color="gray" dimColor>
               ... {lines.length - maxHeight} more lines
             </Text>
-          )}
+            )}
         </Box>
       </Box>
 
