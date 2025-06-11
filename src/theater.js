@@ -1,6 +1,6 @@
-import net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'node:events';
+import net from 'node:net';
 import fs from 'fs';
 import path from 'path';
 
@@ -26,7 +26,7 @@ export class TheaterConnection extends EventEmitter {
     this.socket = null;
     this.dataBuffer = Buffer.alloc(0);
     this.connected = false;
-    
+
     // Prevent EventTarget memory leak warnings
     this.setMaxListeners(20);
   }

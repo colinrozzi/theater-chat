@@ -1,127 +1,154 @@
-# th-git-js
+# inline-chat
 
-A conversational git assistant with inline terminal UI, powered by Theater and JavaScript.
+A configurable inline chat interface for Theater actors with rich terminal UI.
 
 ## Features
 
 - 🎯 **True Inline UI** - Runs in your current terminal without taking over the screen
-- 🎭 **Theater Integration** - Connects to your existing Theater actor system
-- 🤖 **AI-Powered** - Uses Claude for intelligent git assistance
+- 🎭 **Theater Integration** - Connects to your Theater actor system
+- 🤖 **AI-Powered** - Works with any chat-state configuration
 - ⚡ **Real-time** - Live chat interface with instant responses
 - 🎨 **Rich Formatting** - Beautiful colors and layout using Ink
-- 🚀 **Workflow Automation** - Predefined workflows for common git operations
+- ⚙️ **Configurable** - Load any chat-state configuration from JSON
 
 ## Installation
 
 ```bash
-cd th-git-js
+cd inline-chat
 bun install
 ```
 
 ## Usage
 
-### Interactive Mode
+### Basic Usage
 
-Run from any git repository for interactive chat:
+Run with a configuration file:
 
 ```bash
-bun start
+bun start --config /path/to/config.json
 # or
-bun src/index.js
-```
-
-### Automated Workflows
-
-Execute common git operations with predefined prompts:
-
-```bash
-# Analyze and commit changes automatically
-bun src/index.js --commit
-
-# Push current branch to remote
-bun src/index.js --push
-
-# Get comprehensive repository status
-bun src/index.js --status
+bun src/index.js --config ./example-config.json
 ```
 
 ### Command Line Options
 
+- `--config <path>` - **Required** Path to chat configuration JSON file
 - `--server <address>` - Theater server address (default: 127.0.0.1:9000)
+- `--message <text>` - Send an initial message to start the conversation
 - `--verbose` - Enable verbose logging
-- `--commit` - Auto-analyze changes and create appropriate commits
-- `--push` - Auto-push current branch with safety checks
-- `--status` - Get detailed repository status overview
 
-## Workflow Details
+## Configuration Format
 
-### `--commit` Workflow
+The configuration file should be a JSON file that defines the chat-state actor configuration:
 
-The commit workflow will:
-1. Examine current git status and changes
-2. Analyze diffs to understand modifications
-3. Group related changes logically
-4. Create meaningful commit messages
-5. Stage and commit changes appropriately
-6. Ask for confirmation on complex changes
+```json
+{
+  "model_config": {
+    "model": "claude-sonnet-4-20250514",
+    "provider": "anthropic"
+  },
+  "temperature": 1.0,
+  "max_tokens": 8192,
+  "system_prompt": "You are a helpful assistant...",
+  "title": "My Chat Session",
+  "mcp_servers": [
+    {
+      "actor_id": null,
+      "stdio": {
+        "command": "/path/to/mcp-server",
+        "args": ["--arg1", "value1"]
+      },
+      "tools": null
+    }
+  ]
+}
+```
 
-**Example:**
+### Required Fields
+
+- `model_config.model` - The model to use (e.g., "claude-sonnet-4-20250514")
+- `model_config.provider` - The provider (e.g., "anthropic", "openai", "google")
+
+### Optional Fields
+
+- `temperature` - Sampling temperature (0-2, default varies by model)
+- `max_tokens` - Maximum tokens in response
+- `system_prompt` - System prompt to set context
+- `title` - Display title for the chat session
+- `mcp_servers` - Array of MCP server configurations for tool access
+
+## Examples
+
+### Basic Chat with Claude
+
+```json
+{
+  "model_config": {
+    "model": "claude-sonnet-4-20250514",
+    "provider": "anthropic"
+  },
+  "title": "General Chat",
+  "system_prompt": "You are a helpful assistant."
+}
+```
+
+### Programming Assistant with File Access
+
+```json
+{
+  "model_config": {
+    "model": "claude-sonnet-4-20250514",
+    "provider": "anthropic"
+  },
+  "title": "Programming Assistant",
+  "system_prompt": "You are a pair programming assistant with filesystem access.",
+  "mcp_servers": [
+    {
+      "stdio": {
+        "command": "/path/to/fs-mcp-server",
+        "args": ["--allowed-dirs", "/path/to/project"]
+      }
+    }
+  ]
+}
+```
+
+### Running with Initial Message
+
 ```bash
-cd my-project
-bun src/index.js --commit
+bun src/index.js --config config.json --message "Hello! Can you help me review this code?"
 ```
 
-The workflow will launch the interactive UI and automatically send the commit analysis prompt, allowing you to follow the conversation in real-time while the AI analyzes and commits your changes.
-
-### `--push` Workflow
-
-The push workflow will:
-1. Check current branch tracking status
-2. Verify commits are ready to push
-3. Check for remote conflicts
-4. Execute appropriate push command
-5. Handle first-time branch pushes
-
-### `--status` Workflow
-
-The status workflow provides:
-1. Current branch and tracking info
-2. Staged/unstaged changes summary
-3. Recent commit history
-4. Remote synchronization status
-5. Existing stashes
-6. Overall repository health
-
-## Interactive Mode Example
+## Interactive Mode
 
 ```
-┌─ 🎭 Git Assistant ─────────────────────────┐
-│ Repository: my-project                     │
-│ Branch: feature/new-feature               │
-│ Status: Working tree clean                │
-│ Last commit: Add new feature              │
-└───────────────────────────────────────────┘
+┌─ 🎭 Programming Assistant ─────────────────────┐
+│ claude-sonnet-4-20250514                       │
+│ Status: Ready                                  │
+└───────────────────────────────────────────────┘
 
-ℹ️  🎭 Git Assistant started! Type your git-related questions or commands.
+💡 Shortcuts: Ctrl+C (exit), Ctrl+L (clear), Ctrl+T (tool display), Ctrl+H (toggle help)
 
-👤 You: help me commit my changes
+ℹ️  system: Type your questions or commands.
 
-🤖 Assistant: I'd be happy to help you commit your changes! Let me first check what files have been modified...
+👤 You: help me understand this codebase
 
-┌─────────────────────────────────────────────┐
-│ git> _                                      │
-└─────────────────────────────────────────────┘
+🤖 Assistant: I'd be happy to help you understand the codebase! Let me take a look at the project structure...
+
+🔧 Listing directory
+
+💬 _
 ```
 
 ## Architecture
 
-This is a JavaScript implementation of th-git that provides the same functionality as the Rust version but with superior inline UI capabilities:
+This tool provides a generic inline chat interface for any Theater actor:
 
 - **Ink Framework** - React-based CLI components for rich terminal UIs
 - **WebSocket Client** - Direct connection to Theater server
-- **Git Integration** - Repository detection and context gathering
-- **Message Compatibility** - Full compatibility with existing Theater actors
-- **Workflow Engine** - Predefined automation for common operations
+- **JSON Configuration** - Flexible chat-state actor configuration
+- **Message Compatibility** - Full compatibility with Theater chat protocol
+- **Tool Integration** - Support for MCP servers and tool calls
 
 ## Development
 
@@ -133,43 +160,76 @@ bun install
 bun run dev
 
 # Run normally
-bun start
+bun start --config example-config.json
 
-# Test workflows
-bun src/index.js --commit
-bun src/index.js --status
+# Test with initial message
+bun src/index.js --config example-config.json --message "Hello!"
 ```
 
-## Keyboard Shortcuts (Interactive Mode)
+## Keyboard Shortcuts
 
 - `Enter` - Send message
 - `Ctrl+C` - Exit application
+- `Ctrl+L` - Clear message history
+- `Ctrl+T` - Toggle tool call display (hidden/minimal/full)
+- `Ctrl+H` - Toggle help text
 - Type `exit` or `quit` - Exit application
 
-## Adding Custom Workflows
+## Configuration Examples
 
-You can easily add new workflows by extending the `WORKFLOWS` object in `src/index.js`:
+Check out `example-config.json` for a complete example configuration.
 
-```javascript
-const WORKFLOWS = {
-  myworkflow: {
-    prompt: `Your detailed prompt here...`,
-    title: 'My Custom Workflow'
-  }
-};
+### Model Options
+
+Different models you can use:
+
+```json
+// Claude Sonnet 4
+"model_config": {
+  "model": "claude-sonnet-4-20250514", 
+  "provider": "anthropic"
+}
+
+// GPT-4
+"model_config": {
+  "model": "gpt-4", 
+  "provider": "openai"
+}
+
+// Gemini Pro
+"model_config": {
+  "model": "gemini-1.5-pro", 
+  "provider": "google"
+}
 ```
 
-Then add the corresponding CLI option:
+### MCP Server Integration
 
-```javascript
-.option('--myworkflow', 'Description of my workflow')
+Add tool capabilities via MCP servers:
+
+```json
+"mcp_servers": [
+  {
+    "stdio": {
+      "command": "/path/to/filesystem-server",
+      "args": ["--allowed-dirs", "/project"]
+    }
+  },
+  {
+    "stdio": {
+      "command": "/path/to/web-search-server", 
+      "args": ["--api-key", "your-key"]
+    }
+  }
+]
 ```
 
 ## Next Steps
 
-1. ✅ Implement automated workflows (--commit, --push, --status)
-2. Test Theater protocol compatibility
-3. Add more workflow options (--branch, --merge, --rebase)
-4. Refine message parsing and error handling
-5. Add configuration file support
+1. ✅ Basic configuration loading
+2. ✅ Generic chat interface
+3. ✅ Tool call display options
+4. Add configuration validation and better error messages
+5. Add configuration templates/presets
 6. Package for easy distribution
+7. Add configuration wizard

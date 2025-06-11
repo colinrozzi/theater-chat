@@ -1,11 +1,11 @@
 {
-  "name": "th-git-js",
+  "name": "inline-chat",
   "version": "0.1.0",
-  "description": "Conversational git operations with inline terminal UI",
+  "description": "Configurable inline chat interface for Theater actors",
   "main": "src/index.js",
   "type": "module",
   "bin": {
-    "th-git-js": "./src/index.js"
+    "inline-chat": "./src/index.js"
   },
   "scripts": {
     "start": "bun src/index.js",
@@ -26,10 +26,11 @@
     "bun": ">=1.0.0"
   },
   "keywords": [
-    "git",
+    "chat",
     "cli",
     "ai",
     "terminal",
-    "theater"
+    "theater",
+    "inline"
   ]
 }

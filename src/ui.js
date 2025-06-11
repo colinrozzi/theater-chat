@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import { render, Box, Text, useInput, useApp } from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 /**
  * Main application component
  */
-function GitAssistantApp({ theaterClient, actorId, config, workflow }) {
+function ChatApp({ theaterClient, actorId, config, initialMessage }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -22,10 +22,10 @@ function GitAssistantApp({ theaterClient, actorId, config, workflow }) {
   const setupSteps = {
     connecting: 'Connecting to Theater...',
     opening_channel: 'Opening communication channel...',
-    loading_actor: 'Loading git assistant actor...',
-    ready: workflow
-      ? `Running workflow: ${workflow.title}`
-      : 'Type your git-related questions or commands.',
+    loading_actor: 'Loading chat actor...',
+    ready: initialMessage
+      ? `Starting with initial message...`
+      : 'Type your questions or commands.',
     error: 'Failed to connect to Theater server'
   };
 
@@ -99,56 +99,71 @@ function GitAssistantApp({ theaterClient, actorId, config, workflow }) {
                   }
                   return prev;
                 });
+              } else {
+                // This is an assistant message
+                const completion = parsedMessage.message?.entry?.Completion;
+                const message = parsedMessage.message?.entry?.Message;
+                
+                let content = 'Empty response';
+                if (completion?.content) {
+                  // Extract text from completion content array
+                  const textContent = completion.content
+                    .filter(item => item.type === 'text')
+                    .map(item => item.text)
+                    .join('');
+                  content = textContent || 'Empty response';
+                } else if (message?.content) {
+                  // Fallback to Message content
+                  content = message.content;
+                }
 
-                // Start loading for assistant response
-                setIsLoading(true);
-                return;
-              }
+                // Check if we have a pending assistant message to update
+                setMessages(prev => {
+                  const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
+                    .reverse()
+                    .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
 
-              // First process regular text content (assistant responses)
-              const textContent = extractTextContent(parsedMessage);
-              if (textContent && textContent.trim()) {
-                setMessages(prev => [...prev, {
-                  role: 'assistant',
-                  content: textContent,
-                  status: 'complete'
-                }]);
-              }
-
-              // Then check for tool messages and add them after
-              const toolMessages = parseToolMessages(parsedMessage);
-
-              // Add tool messages based on display mode
-              if (toolDisplayMode !== 'hidden') {
-                toolMessages.forEach(toolMsg => {
-                  setMessages(prev => [...prev, { ...toolMsg, status: 'complete' }]);
+                  if (lastAssistantIndex !== undefined) {
+                    // Update the existing pending message
+                    return prev.map((msg, i) =>
+                      i === lastAssistantIndex
+                        ? { ...msg, content, status: 'complete' }
+                        : msg
+                    );
+                  } else {
+                    // Add a new assistant message
+                    return [...prev, { role: 'assistant', content, status: 'complete' }];
+                  }
                 });
-              }
 
-              setIsLoading(false);
+                setIsLoading(false);
+              }
+            } else if (parsedMessage.type === 'tool_call_delta') {
+              // Handle tool calls - just add the tool call message
+              const { tool_name, args } = parsedMessage;
+
+              // Get a nice display name for the tool
+              const toolDisplayName = getToolDisplayName(tool_name, args);
+
+              addMessage('tool', `🔧 ${toolDisplayName}`, 'complete');
             }
-          } catch (error) {
-            console.error('Error processing message:', error);
-            setMessages(prev => [...prev, {
-              role: 'system',
-              content: `Error processing message: ${error.message}`,
-              status: 'complete'
-            }]);
-            setIsLoading(false);
+          } catch (parseError) {
+            console.error('Failed to parse message:', parseError);
+            addMessage('system', `Error parsing message: ${parseError.message}`, 'complete');
           }
         });
 
-
+        // Send initial message if provided
+        if (initialMessage) {
+          setTimeout(() => {
+            sendMessage(initialMessage);
+          }, 1000);
+        }
 
       } catch (error) {
-        console.error('Setup error:', error);
         setSetupStatus('error');
-        setSetupMessage(`${setupSteps.error}: ${error.message}`);
-
-        // Auto-retry after 3 seconds
-        setupTimeout = setTimeout(() => {
-          setupChannel();
-        }, 3000);
+        setSetupMessage(`Error: ${error.message}`);
+        console.error('Setup error:', error);
       }
     }
 
@@ -157,160 +172,147 @@ function GitAssistantApp({ theaterClient, actorId, config, workflow }) {
     return () => {
       if (setupTimeout) clearTimeout(setupTimeout);
     };
+  }, [theaterClient, actorId, initialMessage]);
 
-    // Cleanup function
-    return () => {
-      if (channel) {
-        channel.close();
-      }
-    };
-  }, [theaterClient, actorId]);
-
-  // Auto-send workflow prompt when channel is ready (only once)
-  useEffect(() => {
-    async function sendWorkflowPrompt() {
-      if (channel && workflow) {
-        // Add the workflow message to the UI
-        const workflowMessage = `🚀 ${workflow.title}: ${workflow.prompt}`;
-        addMessage('user', workflowMessage, 'pending');
-        // Don't set loading yet - wait for confirmation
-
-        try {
-          await channel.sendMessage(workflow.prompt);
-        } catch (error) {
-          addMessage('system', `Error sending workflow prompt: ${error.message}`);
-          setIsLoading(false);
-        }
-      }
-    }
-
-    sendWorkflowPrompt();
-  }, [channel, workflow]); // Remove isLoading and addMessage from dependencies to prevent loop
-
-  const handleSubmit = useCallback(async (value) => {
-    const trimmedValue = value.trim();
-
-    if (!trimmedValue) return;
-
-    // Handle special commands
-    if (trimmedValue === 'exit' || trimmedValue === 'quit') {
-      exit();
-      return;
-    }
-
-    if (trimmedValue === '/tools') {
-      // Cycle through tool display modes
-      const modes = ['hidden', 'minimal', 'full'];
-      const currentIndex = modes.indexOf(toolDisplayMode);
-      const nextMode = modes[(currentIndex + 1) % modes.length];
-      setToolDisplayMode(nextMode);
-      // Tool display mode changed silently
-      return;
-    }
-
-    if (trimmedValue === '/help') {
-      setShowInstructions(!showInstructions);
-      return;
-    }
-
-    // Add user message in pending state
-    addMessage('user', trimmedValue, 'pending');
-    setInputValue('');
-    // Don't set loading yet - wait for confirmation from actor
+  // Function to send messages
+  const sendMessage = useCallback(async (messageText) => {
+    if (!channel || !messageText.trim()) return;
 
     try {
-      if (channel) {
-        await channel.sendMessage(trimmedValue);
-      } else {
-        addMessage('system', 'Channel not ready, please wait...');
-        setIsLoading(false);
-      }
+      setIsLoading(true);
+
+      // Add user message as pending
+      addPendingMessage('user', messageText.trim());
+
+      // Add pending assistant message
+      addPendingMessage('assistant', '');
+
+      // Send message to the channel
+      await channel.sendMessage(messageText.trim());
+
+      setInputValue('');
+
     } catch (error) {
-      addMessage('system', `Error sending message: ${error.message}`);
+      console.error('Error sending message:', error);
+      addMessage('system', `Error sending message: ${error.message}`, 'complete');
       setIsLoading(false);
     }
-  }, [channel, addMessage, exit, toolDisplayMode, showInstructions]);
+  }, [channel, addPendingMessage, addMessage]);
 
-  // Handle keyboard shortcuts
+  // Handle input submission
+  const handleSubmit = useCallback(() => {
+    sendMessage(inputValue);
+  }, [inputValue, sendMessage]);
+
+  // Keyboard shortcuts
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       exit();
     }
+
+    if (key.ctrl && input === 'l') {
+      setMessages([]);
+    }
+
+    // Toggle tool display mode with Ctrl+T
     if (key.ctrl && input === 't') {
-      // Quick toggle for tool display
-      const modes = ['hidden', 'minimal', 'full'];
-      const currentIndex = modes.indexOf(toolDisplayMode);
-      const nextMode = modes[(currentIndex + 1) % modes.length];
-      setToolDisplayMode(nextMode);
-      // Tool display mode changed silently
+      setToolDisplayMode(prev => {
+        const modes = ['hidden', 'minimal', 'full'];
+        const currentIndex = modes.indexOf(prev);
+        return modes[(currentIndex + 1) % modes.length];
+      });
+    }
+
+    // Toggle instructions with Ctrl+H
+    if (key.ctrl && input === 'h') {
+      setShowInstructions(prev => !prev);
     }
   });
 
+  // Auto-cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (channel) {
+        try {
+          channel.close();
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      }
+    };
+  }, [channel]);
+
   return (
-    <Box flexDirection="column" padding={1}>
-      {/* Header with repository info and setup status - only show during setup */}
-      {setupStatus !== 'ready' && (
-        <GitContextHeader config={config} setupStatus={setupStatus} setupMessage={setupMessage} />
+    <Box flexDirection="column" height={process.stdout.rows - 1}>
+      {/* Header */}
+      <ChatHeader config={config} setupStatus={setupStatus} setupMessage={setupMessage} />
+
+      {/* Instructions */}
+      {showInstructions && setupStatus === 'ready' && (
+        <Box marginBottom={1}>
+          <Text color="gray">
+            💡 Shortcuts: Ctrl+C (exit), Ctrl+L (clear), Ctrl+T (tool display), Ctrl+H (toggle help)
+          </Text>
+        </Box>
       )}
 
-      {/* Main chat area */}
-      <Box flexDirection="column" flexGrow={1}>
-        <ChatMessages messages={messages} toolDisplayMode={toolDisplayMode} />
+      {/* Messages */}
+      <Box flexDirection="column" flexGrow={1} paddingBottom={1}>
+        {messages.map((message, index) => (
+          <MessageComponent
+            key={index}
+            message={message}
+            toolDisplayMode={toolDisplayMode}
+          />
+        ))}
+      </Box>
 
-        {/* Input area - only show when ready */}
-        {setupStatus === 'ready' && (
-          <ChatInput
+      {/* Input */}
+      {setupStatus === 'ready' && (
+        <Box>
+          <Text color="gray">💬 </Text>
+          <TextInput
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            isLoading={isLoading}
+            placeholder="Type your question or command..."
+            showCursor={!isLoading}
           />
-        )}
+          {isLoading && (
+            <Box marginLeft={1}>
+              <Spinner type="dots" />
+              <Text color="yellow"> Thinking...</Text>
+            </Box>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
 
+/**
+ * Chat header component
+ */
+function ChatHeader({ config, setupStatus, setupMessage }) {
+  const title = config.title || 'Chat Session';
 
-        {setupStatus === 'ready' && showInstructions && <InstructionsFooter toolDisplayMode={toolDisplayMode} />}
+  return (
+    <Box flexDirection="column" paddingBottom={1} borderStyle="round" borderColor="cyan">
+      <Box justifyContent="space-between">
+        <Text color="cyan">🎭 {title}</Text>
+        <Text color="gray">{config.model_config?.model || 'Unknown Model'}</Text>
       </Box>
-    </Box>
-  );
-}
 
-/**
- * Instructions footer component
- */
-function InstructionsFooter({ toolDisplayMode }) {
-  return (
-    <Box flexDirection="column" marginTop={1}>
-      <Text color="cyan">Commands: /tools (toggle: {toolDisplayMode}) | /help (hide) | exit</Text>
-      <Text color="cyan">Shortcuts: Ctrl+C (exit) | Ctrl+T (toggle tools)</Text>
-    </Box>
-  );
-}
-
-/**
- * Git context header component
- */
-function GitContextHeader({ config, setupStatus, setupMessage }) {
-  const { gitContext } = config;
-
-  return (
-    <Box borderStyle="round" borderColor="blue" padding={1} marginBottom={1}>
-      <Box flexDirection="column" width="100%">
-        <Box justifyContent="space-between">
-          <Text color="cyan">🎭 Git Assistant</Text>
-          <Text color="gray">{gitContext.branch}</Text>
-        </Box>
-        <Box justifyContent="space-between">
-          <Text color="gray">Repository: {gitContext.repository ? gitContext.repository.split('/').pop() : config.title.replace('Git Assistant - ', '')}</Text>
-          <Text color="gray">Status: {gitContext.status}</Text>
-        </Box>
-
-        {/* Setup status indicator */}
-        {setupStatus !== 'ready' && (
-          <Box marginTop={1}>
-            <Text color={setupStatus === 'error' ? 'red' : 'yellow'}>
-              {setupStatus === 'error' ? '❌' : '⏳'} {setupMessage}
-              {setupStatus === 'error' && <Text color="gray"> (retrying in 3s...)</Text>}
-            </Text>
+      <Box>
+        <Text color="gray">Status: </Text>
+        {setupStatus === 'ready' ? (
+          <Text color="green">Ready</Text>
+        ) : setupStatus === 'error' ? (
+          <Text color="red">Error</Text>
+        ) : (
+          <Box>
+            <Spinner type="dots" />
+            <Text color="yellow"> {setupMessage}</Text>
           </Box>
         )}
       </Box>
@@ -319,383 +321,127 @@ function GitContextHeader({ config, setupStatus, setupMessage }) {
 }
 
 /**
- * Chat messages display component
+ * Message component
  */
-function ChatMessages({ messages, toolDisplayMode }) {
+function MessageComponent({ message, toolDisplayMode }) {
+  const { role, content, status } = message;
+
+  if (role === 'tool' && toolDisplayMode === 'hidden') {
+    return null;
+  }
+
+  const roleColor = {
+    user: 'blue',
+    assistant: 'green',
+    system: 'gray',
+    tool: 'magenta'
+  }[role] || 'white';
+
+  const roleIcon = {
+    user: '👤',
+    assistant: '🤖',
+    system: 'ℹ️',
+    tool: '🔧'
+  }[role] || '•';
+
   return (
-    <Box flexDirection="column" minHeight={10}>
-      {messages.slice(-20).map((msg, i) => (
-        <ChatMessage key={i} message={msg} toolDisplayMode={toolDisplayMode} />
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color={roleColor}>{roleIcon} {role === 'user' ? 'You' : role === 'assistant' ? 'Assistant' : role}: </Text>
+        {status === 'pending' && role !== 'tool' && (
+          <Box marginLeft={1}>
+            <Spinner type="dots" />
+          </Box>
+        )}
+      </Box>
+
+      {content && (
+        <Box marginLeft={2}>
+          <FormattedContent content={content} role={role} toolDisplayMode={toolDisplayMode} />
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/**
+ * Formatted content component
+ */
+function FormattedContent({ content, role, toolDisplayMode }) {
+  // For tool messages, keep them concise unless in full mode
+  if (role === 'tool' && toolDisplayMode === 'minimal') {
+    return <Text color="gray">{content}</Text>;
+  }
+
+  // Split content into lines and render with basic formatting
+  const lines = content.split('\n');
+
+  return (
+    <Box flexDirection="column">
+      {lines.map((line, index) => (
+        <Text key={index}>{line || ' '}</Text>
       ))}
     </Box>
   );
 }
 
 /**
- * Individual chat message component
+ * Get display name for tools
  */
-function ChatMessage({ message, toolDisplayMode }) {
-  const getMessageStyle = (role, status) => {
-    const isPending = status === 'pending';
-    switch (role) {
-      case 'user':
-        return {
-          color: isPending ? 'gray' : 'gray',
-          prefix: '',
-          dimColor: isPending
-        };
-      case 'assistant':
-        return { color: 'white', prefix: '' };
-      case 'system':
-        return { color: 'yellow', prefix: '' };
-      case 'tool_use':
-        return { color: 'magenta', prefix: '' };
-      case 'tool_result':
-        return { color: 'blue', prefix: '' };
-      default:
-        return { color: 'white', prefix: '' };
+function getToolDisplayName(toolName, args) {
+  // Provide nice display names for common tools
+  const toolNames = {
+    'read': 'Reading file',
+    'write': 'Writing file',
+    'list': 'Listing directory',
+    'search': 'Searching files',
+    'edit': 'Editing file',
+    'delete': 'Deleting file',
+    'mkdir': 'Creating directory',
+    'move': 'Moving file',
+    'copy': 'Copying file'
+  };
+
+  return toolNames[toolName] || `${toolName}`;
+}
+
+/**
+ * Render the app and handle cleanup
+ */
+export async function renderApp(theaterClient, actorId, config, initialMessage) {
+  let app = null;
+
+  const cleanup = async () => {
+    try {
+      if (actorId && theaterClient) {
+        await theaterClient.stopActor(actorId);
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+    }
+
+    if (app) {
+      app.unmount();
     }
   };
 
-  const { color, prefix, dimColor } = getMessageStyle(message.role, message.status);
+  // Set up cleanup on exit
+  process.on('exit', cleanup);
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 
-  // Handle tool use messages
-  if (message.role === 'tool_use') {
-    if (toolDisplayMode === 'hidden') return null;
-
-    if (toolDisplayMode === 'minimal') {
-      // Show first 50 chars of the input object (from the full content)
-      //const inputContent = message.content || '';
-      //const inputStr = inputContent.slice(0, 10);
-      //const displayText = inputContent.length > 50 ? inputStr + '...' : inputStr;
-
-      const args = message.toolArgs ? message.toolArgs.join(' ') : '';
-      const displayText = `${message.functionName} ${args}`.trim();
-
-      return (
-        <Box>
-          <Text color={color} dimColor>
-            {message.toolName}: {args}
-          </Text>
-        </Box>
-      );
-    }
-
-    // Full mode
-    return (
-      <Box flexDirection="column">
-        <Text color={color}>
-          {message.toolName} {message.toolArgs ? message.toolArgs.join(' ') : ''}
-        </Text>
-        {message.content && (
-          <Box marginLeft={2} borderStyle="single" borderColor="magenta" padding={1}>
-            <Text color="gray">{message.content}</Text>
-          </Box>
-        )}
-      </Box>
-    );
-  }
-
-  // Handle tool result messages
-  if (message.role === 'tool_result') {
-    if (toolDisplayMode === 'hidden') return null;
-
-    if (toolDisplayMode === 'minimal') {
-      // Show just a summary for minimal mode
-      const summary = getResultSummary(message.content, message.toolName);
-      return (
-        <Box>
-          <Text color={color} dimColor>
-            {summary}
-          </Text>
-        </Box>
-      );
-    }
-
-    // Full mode
-    return (
-      <Box flexDirection="column">
-        <Text color={color}>
-          Tool Result:
-        </Text>
-        <Box marginLeft={2} borderStyle="single" borderColor="gray" padding={1}>
-          <FormattedOutput content={message.content} toolName={message.toolName} />
-        </Box>
-      </Box>
-    );
-  }
-
-  // Regular messages
-  return (
-    <Box>
-      <Text color={color} dimColor={dimColor}>
-        {message.content}
-        {message.status === 'pending' && (
-          <Text color="gray"> (sending...)</Text>
-        )}
-      </Text>
-    </Box>
-  );
-}
-
-/**
- * Get a summary of tool results for minimal display
- */
-function getResultSummary(content, toolName) {
-  if (!content) return 'No output';
-
-  const lines = content.split('\n').filter(line => line.trim());
-  const firstLine = lines[0] || '';
-
-  // Specific summaries for different tools
-  if (toolName === 'git-command') {
-    if (content.includes('nothing to commit')) return 'Working tree clean';
-    if (content.includes('On branch')) return `On branch ${firstLine.split(' ').pop()}`;
-    if (content.includes('commit ')) return `${lines.length} commits shown`;
-    if (content.includes('diff --git')) return `Diff for ${lines.filter(l => l.startsWith('diff --git')).length} files`;
-    if (content.includes('Changes not staged')) return 'Unstaged changes detected';
-    if (content.includes('Changes to be committed')) return 'Staged changes detected';
-  }
-
-  // Generic summary
-  if (lines.length === 1) return firstLine.slice(0, 50) + (firstLine.length > 50 ? '...' : '');
-  return `${lines.length} lines of output`;
-}
-
-/**
- * Formatted output component for tool results
- */
-function FormattedOutput({ content, toolName }) {
-  // Handle git diff output with ANSI colors
-  if (toolName === 'git-command' && content.includes('diff --git')) {
-    return <GitDiffOutput content={content} />;
-  }
-
-  // Handle git status with colors
-  if (toolName === 'git-command' && (content.includes('On branch') || content.includes('nothing to commit'))) {
-    return <GitStatusOutput content={content} />;
-  }
-
-  // Handle git log with colors
-  if (toolName === 'git-command' && content.includes('commit ')) {
-    return <GitLogOutput content={content} />;
-  }
-
-  // Default: preserve any ANSI escape codes
-  return <AnsiText>{content}</AnsiText>;
-}
-
-/**
- * Component to render ANSI colored text
- */
-function AnsiText({ children }) {
-  // This is a simplified version - you might want to use a proper ANSI parser
-  const text = children || '';
-
-  // Remove ANSI escape codes for now (could be enhanced to interpret them)
-  const cleanText = text.replace(/\x1b\[[0-9;]*m/g, '');
-
-  return <Text>{cleanText}</Text>;
-}
-
-/**
- * Git diff output component
- */
-function GitDiffOutput({ content }) {
-  const lines = content.split('\n');
-
-  return (
-    <Box flexDirection="column">
-      {lines.map((line, i) => {
-        let color = 'white';
-        if (line.startsWith('+')) color = 'green';
-        else if (line.startsWith('-')) color = 'red';
-        else if (line.startsWith('@@')) color = 'cyan';
-        else if (line.startsWith('diff --git')) color = 'yellow';
-
-        return (
-          <Text key={i} color={color}>
-            {line}
-          </Text>
-        );
-      })}
-    </Box>
-  );
-}
-
-/**
- * Git status output component
- */
-function GitStatusOutput({ content }) {
-  const lines = content.split('\n');
-
-  return (
-    <Box flexDirection="column">
-      {lines.map((line, i) => {
-        let color = 'white';
-        if (line.includes('modified:')) color = 'yellow';
-        else if (line.includes('new file:')) color = 'green';
-        else if (line.includes('deleted:')) color = 'red';
-        else if (line.includes('On branch')) color = 'cyan';
-
-        return (
-          <Text key={i} color={color}>
-            {line}
-          </Text>
-        );
-      })}
-    </Box>
-  );
-}
-
-/**
- * Git log output component
- */
-function GitLogOutput({ content }) {
-  const lines = content.split('\n');
-
-  return (
-    <Box flexDirection="column">
-      {lines.map((line, i) => {
-        let color = 'white';
-        if (line.includes('commit ')) color = 'yellow';
-        else if (line.includes('Author:')) color = 'cyan';
-        else if (line.includes('Date:')) color = 'green';
-
-        return (
-          <Text key={i} color={color}>
-            {line}
-          </Text>
-        );
-      })}
-    </Box>
-  );
-}
-
-/**
- * Chat input component
- */
-function ChatInput({ value, onChange, onSubmit, isLoading }) {
-  return (
-    <Box flexDirection="row" width="100%">
-      <Text color="gray">git&gt; </Text>
-      {isLoading ? (
-        <Box marginLeft={1}>
-          <Spinner type="dots" />
-          <Text color="gray"> Processing...</Text>
-        </Box>
-      ) : (
-        <TextInput
-          value={value}
-          onChange={onChange}
-          onSubmit={onSubmit}
-          placeholder="Type your git question or command..."
-        />
-      )}
-    </Box>
-  );
-}
-
-/**
- * Extract text content from Theater message structure
- */
-function extractTextContent(parsedMessage) {
-  // Handle completion messages
-  if (parsedMessage.message?.entry?.Completion?.content) {
-    const content = parsedMessage.message.entry.Completion.content;
-    return content
-      .filter(item => item.type === 'text')
-      .map(item => item.text)
-      .join('');
-  }
-
-  // Handle regular messages
-  if (parsedMessage.message?.entry?.Message?.content) {
-    const content = parsedMessage.message.entry.Message.content;
-    return content
-      .filter(item => item.type === 'text')
-      .map(item => item.text)
-      .join('');
-  }
-
-  return '';
-}
-
-/**
- * Parse tool messages from Theater message structure
- */
-function parseToolMessages(parsedMessage) {
-  const toolMessages = [];
-
-  // Handle completion messages that might contain tool_use
-  if (parsedMessage.message?.entry?.Completion?.content) {
-    const content = parsedMessage.message.entry.Completion.content;
-
-    for (const item of content) {
-      if (item.type === 'tool_use') {
-        const toolMessage = {
-          role: 'tool_use',
-          toolName: item.name,
-          toolArgs: item.input?.args || [],
-          functionName: item.input?.function || item.input?.command || item.input?.args?.[0],
-          content: JSON.stringify(item.input, null, 2)
-        };
-        toolMessages.push(toolMessage);
-
-        // Store the last tool name for linking with results
-        parseToolMessages.lastToolName = item.name;
-      }
-    }
-  }
-
-  // Handle user messages that might contain tool_result
-  if (parsedMessage.message?.entry?.Message?.content) {
-    const content = parsedMessage.message.entry.Message.content;
-
-    for (const item of content) {
-      if (item.type === 'tool_result') {
-        const resultText = item.content
-          ?.filter(c => c.type === 'text')
-          ?.map(c => c.text)
-          ?.join('\n') || '';
-
-        toolMessages.push({
-          role: 'tool_result',
-          toolName: parseToolMessages.lastToolName || 'unknown',
-          content: resultText.replace(/^"|"$/g, '').replace(/\\n/g, '\n')
-        });
-      }
-    }
-  }
-
-  return toolMessages;
-}
-
-// Static property to track last tool name
-parseToolMessages.lastToolName = null;
-
-/**
- * Render the application
- */
-export async function renderApp(theaterClient, actorId, config, workflow = null) {
-  const { waitUntilExit } = render(
-    <GitAssistantApp
-      theaterClient={theaterClient}
-      actorId={actorId}
-      config={config}
-      workflow={workflow}
-    />
-  );
-
-  // Wait for the app to exit
-  await waitUntilExit();
-
-  // Clean up - stop the actor we started
-  console.log(chalk.redBright(`Cleaning up actor: ${actorId}`));
   try {
-    await theaterClient.stopActor(actorId);
-    console.log(chalk.redBright(`Actor ${actorId} stopped successfully`));
-  } catch (error) {
-    console.error(chalk.red(`Failed to stop actor ${actorId}: ${error.message}`));
+    app = render(
+      <ChatApp
+        theaterClient={theaterClient}
+        actorId={actorId}
+        config={config}
+        initialMessage={initialMessage}
+      />
+    );
+
+    await app.waitUntilExit();
+  } finally {
+    await cleanup();
   }
 }
