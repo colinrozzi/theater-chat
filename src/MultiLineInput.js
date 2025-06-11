@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import fs from 'fs';
 import path from 'path';
 
@@ -38,6 +38,7 @@ export default function MultiLineInput({
   onContentChange,
   onCursorChange
 }) {
+  const { stdout } = useStdout();
   logInput(`Render: content="${content}", cursor=${cursorPosition}`);
 
   // Convert content to lines for display
@@ -62,27 +63,27 @@ export default function MultiLineInput({
     const after = content.slice(cursorPosition);
     const newContent = before + text + after;
     const newCursor = cursorPosition + text.length;
-    
+
     onContentChange(newContent);
     onCursorChange(newCursor);
   }, [content, cursorPosition, onContentChange, onCursorChange]);
 
   const deleteChar = useCallback((direction = 'backward') => {
     logInput(`Delete: direction=${direction}, cursor=${cursorPosition}`);
-    
+
     if (direction === 'backward' && cursorPosition > 0) {
       const before = content.slice(0, cursorPosition - 1);
       const after = content.slice(cursorPosition);
       const newContent = before + after;
       const newCursor = cursorPosition - 1;
-      
+
       onContentChange(newContent);
       onCursorChange(newCursor);
     } else if (direction === 'forward' && cursorPosition < content.length) {
       const before = content.slice(0, cursorPosition);
       const after = content.slice(cursorPosition + 1);
       const newContent = before + after;
-      
+
       onContentChange(newContent);
       // Cursor stays same for forward delete
     }
@@ -187,7 +188,7 @@ export default function MultiLineInput({
   const hasMoreLines = lines.length > maxHeight;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" width="100%">
       <Box
         borderStyle="round"
         borderColor="gray"
@@ -195,6 +196,7 @@ export default function MultiLineInput({
         paddingRight={1}
         flexDirection="column"
         minHeight={3}
+        width="80%"
       >
         <Box flexDirection="column">
           {isEmpty ? (

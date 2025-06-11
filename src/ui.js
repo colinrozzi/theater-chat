@@ -372,7 +372,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
 
       {/* Multi-line Input */}
       {setupStatus === 'ready' && (
-        <Box marginTop={1}>
+        <Box marginTop={1} width="100%">
           <MultiLineInput
             mode={inputMode}
             onModeChange={setInputMode}
