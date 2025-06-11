@@ -1,5 +1,5 @@
 import { render, Box, Text, useInput, useApp } from 'ink';
-import MultiLineInput from './MultiLineInput-simple.js';
+import MultiLineInput from './MultiLineInput.js';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
 import { useState, useEffect, useCallback, useMemo } from 'react';
