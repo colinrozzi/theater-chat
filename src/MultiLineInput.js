@@ -13,9 +13,11 @@ export default function MultiLineInput({
   placeholder = 'Type your message...',
   onSubmit,
   maxHeight = 6,
-  submitHint = "Ctrl+Enter to send"
+  mode = 'insert', // 'insert' | 'normal'
+  onModeChange,
+  content = '',
+  onContentChange
 }) {
-  const [content, setContent] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
 
   // Convert content to lines for display
@@ -38,9 +40,9 @@ export default function MultiLineInput({
     const before = content.slice(0, cursorPosition);
     const after = content.slice(cursorPosition);
     const newContent = before + text + after;
-    setContent(newContent);
+    onContentChange(newContent);
     setCursorPosition(cursorPosition + text.length);
-  }, [content, cursorPosition]);
+  }, [content, cursorPosition, onContentChange]);
 
   // Delete character
   const deleteChar = useCallback((direction = 'backward') => {
@@ -48,16 +50,16 @@ export default function MultiLineInput({
       // Backspace
       const before = content.slice(0, cursorPosition - 1);
       const after = content.slice(cursorPosition);
-      setContent(before + after);
+      onContentChange(before + after);
       setCursorPosition(cursorPosition - 1);
     } else if (direction === 'forward' && cursorPosition < content.length) {
       // Delete
       const before = content.slice(0, cursorPosition);
       const after = content.slice(cursorPosition + 1);
-      setContent(before + after);
+      onContentChange(before + after);
       // Cursor position stays the same
     }
-  }, [content, cursorPosition]);
+  }, [content, cursorPosition, onContentChange]);
 
   // Move cursor
   const moveCursor = useCallback((newPos) => {
@@ -67,9 +69,9 @@ export default function MultiLineInput({
 
   // Clear input
   const clearInput = useCallback(() => {
-    setContent('');
+    onContentChange('');
     setCursorPosition(0);
-  }, []);
+  }, [onContentChange]);
 
   // Submit handler
   const handleSubmit = useCallback(() => {
@@ -80,11 +82,16 @@ export default function MultiLineInput({
     }
   }, [content, onSubmit, clearInput]);
 
-  // Key input handler
+  // Key input handler - only active in INSERT mode
   useInput((input, key) => {
-    // Submit on Ctrl+Enter
-    if (key.ctrl && key.return) {
-      handleSubmit();
+    // Always handle Escape to switch to NORMAL mode
+    if (key.escape) {
+      onModeChange('normal');
+      return;
+    }
+
+    // Only handle other keys in INSERT mode
+    if (mode !== 'insert') {
       return;
     }
 
@@ -161,12 +168,6 @@ export default function MultiLineInput({
       return;
     }
 
-    // Escape: Clear input
-    if (key.escape) {
-      clearInput();
-      return;
-    }
-
     // Regular character input
     if (input && !key.ctrl && !key.meta) {
       insertText(input);
@@ -191,7 +192,9 @@ export default function MultiLineInput({
         {/* Header */}
         <Box justifyContent="space-between" marginBottom={1}>
           <Text color="gray">Message</Text>
-          <Text color="gray" dimColor>{submitHint}</Text>
+          <Text color={mode === 'insert' ? 'green' : 'blue'}>
+            ({mode.toUpperCase()})
+          </Text>
         </Box>
 
         {/* Content */}
@@ -214,7 +217,10 @@ export default function MultiLineInput({
               return (
                 <Text key={index}>
                   {beforeCursor}
-                  <Text backgroundColor="white" color="black">
+                  <Text 
+                    backgroundColor={mode === 'normal' ? 'blue' : 'white'} 
+                    color={mode === 'normal' ? 'white' : 'black'}
+                  >
                     {atCursor}
                   </Text>
                   {afterCursor}

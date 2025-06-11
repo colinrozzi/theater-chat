@@ -9,7 +9,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
  */
 function ChatApp({ theaterClient, actorId, config, initialMessage }) {
   const [messages, setMessages] = useState([]);
-  // Removed inputValue - now handled by MultiLineInput
+  // Mode state for vim-style input
+  const [inputMode, setInputMode] = useState('insert'); // 'insert' | 'normal'
+  const [inputContent, setInputContent] = useState(''); // Content of the input
   const [isGenerating, setIsGenerating] = useState(false); // Renamed for clarity - tracks entire generation sequence
   const [channel, setChannel] = useState(null);
   const [setupStatus, setSetupStatus] = useState('connecting'); // 'connecting', 'opening_channel', 'loading_actor', 'ready', 'error'
@@ -272,13 +274,18 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     }
   }, [channel, addPendingMessage, addMessage]);
 
-  // Handle input submission - now receives content from MultiLineInput
+  // Handle input submission - works with lifted content state
   const handleSubmit = useCallback((content) => {
-    sendMessage(content);
-  }, [sendMessage]);
+    const messageContent = content || inputContent;
+    if (messageContent.trim()) {
+      sendMessage(messageContent.trim());
+      setInputContent(''); // Clear after sending
+    }
+  }, [sendMessage, inputContent]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts and NORMAL mode commands
   useInput((input, key) => {
+    // Global shortcuts (work in any mode)
     if (key.ctrl && input === 'c') {
       exit();
     }
@@ -299,6 +306,21 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     // Toggle instructions with Ctrl+H
     if (key.ctrl && input === 'h') {
       setShowInstructions(prev => !prev);
+    }
+
+    // NORMAL mode commands (only when in normal mode)
+    if (inputMode === 'normal') {
+      // Enter: Send message
+      if (key.return) {
+        handleSubmit();
+        return;
+      }
+
+      // i: Switch to INSERT mode
+      if (input === 'i' && !key.ctrl && !key.meta) {
+        setInputMode('insert');
+        return;
+      }
     }
   });
 
@@ -350,11 +372,13 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
       {setupStatus === 'ready' && (
         <Box marginTop={1}>
           <MultiLineInput
+            mode={inputMode}
+            onModeChange={setInputMode}
+            content={inputContent}
+            onContentChange={setInputContent}
             onSubmit={handleSubmit}
-            placeholder={isGenerating ? "Generating response..." : "Type your message... (Ctrl+Enter to send)"}
+            placeholder={isGenerating ? "Generating response..." : "Type your message..."}
             maxHeight={6}
-            showLineNumbers={false}
-            submitHint="Ctrl+Enter to send"
           />
         </Box>
       )}
