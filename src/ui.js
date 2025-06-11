@@ -1,5 +1,5 @@
 import { render, Box, Text, useInput, useApp } from 'ink';
-import TextInput from 'ink-text-input';
+import MultiLineInput from './MultiLineInput.js';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
  */
 function ChatApp({ theaterClient, actorId, config, initialMessage }) {
   const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState('');
+  // Removed inputValue - now handled by MultiLineInput
   const [isGenerating, setIsGenerating] = useState(false); // Renamed for clarity - tracks entire generation sequence
   const [channel, setChannel] = useState(null);
   const [setupStatus, setSetupStatus] = useState('connecting'); // 'connecting', 'opening_channel', 'loading_actor', 'ready', 'error'
@@ -51,15 +51,15 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
       const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
         .reverse()
         .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
-      
-      const toolMessage = { 
-        role: 'tool', 
-        content: toolName, 
-        toolName, 
-        toolArgs, 
-        status: 'complete' 
+
+      const toolMessage = {
+        role: 'tool',
+        content: toolName,
+        toolName,
+        toolArgs,
+        status: 'complete'
       };
-      
+
       if (lastAssistantIndex !== undefined) {
         // Insert tool message before the pending assistant message
         const newMessages = [...prev];
@@ -263,7 +263,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
       // Send message to the channel
       await channel.sendMessage(messageText.trim());
 
-      setInputValue('');
+      // Input clearing now handled by MultiLineInput
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -272,10 +272,10 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     }
   }, [channel, addPendingMessage, addMessage]);
 
-  // Handle input submission
-  const handleSubmit = useCallback(() => {
-    sendMessage(inputValue);
-  }, [inputValue, sendMessage]);
+  // Handle input submission - now receives content from MultiLineInput
+  const handleSubmit = useCallback((content) => {
+    sendMessage(content);
+  }, [sendMessage]);
 
   // Keyboard shortcuts
   useInput((input, key) => {
@@ -346,16 +346,15 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
         </Box>
       )}
 
-      {/* Input */}
+      {/* Multi-line Input */}
       {setupStatus === 'ready' && (
-        <Box borderStyle="round" borderColor="gray" paddingX={1}>
-          <Text color="cyan">&gt; </Text>
-          <TextInput
-            value={inputValue}
-            onChange={setInputValue}
+        <Box marginTop={1}>
+          <MultiLineInput
             onSubmit={handleSubmit}
-            placeholder={isGenerating ? "Generating response..." : "Type your question or command..."}
-            showCursor={!isGenerating}
+            placeholder={isGenerating ? "Generating response..." : "Type your message... (Ctrl+Enter to send)"}
+            maxHeight={6}
+            showLineNumbers={false}
+            submitHint="Ctrl+Enter to send"
           />
         </Box>
       )}
@@ -420,10 +419,10 @@ function MessageComponent({ message, toolDisplayMode }) {
     <Box flexDirection="column">
       {content && (
         <Box marginBottom={1}>
-          <FormattedContent 
-            content={content} 
-            role={role} 
-            toolDisplayMode={toolDisplayMode} 
+          <FormattedContent
+            content={content}
+            role={role}
+            toolDisplayMode={toolDisplayMode}
             contentColor={contentColor}
             message={message}
           />
