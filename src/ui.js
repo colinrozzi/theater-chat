@@ -1,5 +1,5 @@
 import { render, Box, Text, useInput, useApp } from 'ink';
-import MultiLineInput from './MultiLineInput.js';
+import MultiLineInput from './MultiLineInput-simple.js';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -12,6 +12,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
   // Mode state for vim-style input
   const [inputMode, setInputMode] = useState('insert'); // 'insert' | 'normal'
   const [inputContent, setInputContent] = useState(''); // Content of the input
+  const [inputCursor, setInputCursor] = useState(0); // Cursor position in the input
   const [isGenerating, setIsGenerating] = useState(false); // Renamed for clarity - tracks entire generation sequence
   const [channel, setChannel] = useState(null);
   const [setupStatus, setSetupStatus] = useState('connecting'); // 'connecting', 'opening_channel', 'loading_actor', 'ready', 'error'
@@ -280,6 +281,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     if (messageContent.trim()) {
       sendMessage(messageContent.trim());
       setInputContent(''); // Clear after sending
+      setInputCursor(0); // Reset cursor
     }
   }, [sendMessage, inputContent]);
 
@@ -375,7 +377,9 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
             mode={inputMode}
             onModeChange={setInputMode}
             content={inputContent}
+            cursorPosition={inputCursor}
             onContentChange={setInputContent}
+            onCursorChange={setInputCursor}
             onSubmit={handleSubmit}
             placeholder={isGenerating ? "Generating response..." : "Type your message..."}
             maxHeight={6}

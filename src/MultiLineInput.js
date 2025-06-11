@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import fs from 'fs';
 import path from 'path';
@@ -43,15 +43,23 @@ export default function MultiLineInput({
 
   // Track if we need to notify parent of content changes
   const [pendingContentChange, setPendingContentChange] = useState(null);
+  
+  // Use ref to track if we initiated the content change (to avoid cursor reset)
+  const initiatedChangeRef = useRef(false);
 
   // Sync with parent content changes (when parent updates content)
   useEffect(() => {
-    if (inputState.content !== content) {
-      logInput(`Syncing with parent: "${inputState.content}" -> "${content}"`);
+    // Only sync if the parent changed content AND we didn't initiate it
+    if (inputState.content !== content && !initiatedChangeRef.current) {
+      logInput(`Syncing with parent (external change): "${inputState.content}" -> "${content}"`);
       setInputState(prevState => ({
         content: content,
         cursorPosition: Math.min(prevState.cursorPosition, content.length)
       }));
+    } else if (inputState.content !== content && initiatedChangeRef.current) {
+      logInput(`Ignoring parent sync (we initiated change): "${inputState.content}" vs "${content}"`);
+      // Reset the flag
+      initiatedChangeRef.current = false;
     }
   }, [content, inputState.content]);
 
@@ -59,6 +67,7 @@ export default function MultiLineInput({
   useEffect(() => {
     if (pendingContentChange !== null) {
       logInput(`Notifying parent of content change: "${pendingContentChange}"`);
+      initiatedChangeRef.current = true; // Mark that we're initiating this change
       onContentChange(pendingContentChange);
       setPendingContentChange(null);
     }
@@ -184,7 +193,7 @@ export default function MultiLineInput({
 
   // Key input handler
   useInput((input, key) => {
-    logInput(`Key input: input="${input}", key=${JSON.stringify(key)}, mode=${mode}`);
+    logInput(`Key input: input="${input}", key=${JSON.stringify(key)}, mode=${mode}, current cursor=${inputState.cursorPosition}`);
 
     // Always handle Escape
     if (key.escape) {
@@ -330,6 +339,9 @@ export default function MultiLineInput({
     // Log unhandled keys
     logInput(`Unhandled key: input="${input}", key=${JSON.stringify(key)}`);
   });
+
+  // Debug: Log current state for rendering
+  logInput(`Rendering with: content="${inputState.content}", cursor=${inputState.cursorPosition}, row=${cursorRow}, col=${cursorCol}`);
 
   // Render lines with cursor
   const displayLines = lines.slice(0, maxHeight);
