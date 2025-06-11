@@ -19,6 +19,34 @@ export default function MultiLineInput({
   onContentChange
 }) {
   const [cursorPosition, setCursorPosition] = useState(0);
+  
+  // Debug content changes from parent
+  React.useEffect(() => {
+    console.log('📝 CONTENT DEBUG - Content prop changed from parent:', {
+      newContent: JSON.stringify(content),
+      length: content.length,
+      cursorPosition,
+      timestamp: new Date().toISOString()
+    });
+  }, [content]);
+  
+  // Debug cursor position changes
+  React.useEffect(() => {
+    console.log('📍 CURSOR DEBUG - Cursor position changed:', {
+      newPosition: cursorPosition,
+      contentLength: content.length,
+      isValid: cursorPosition <= content.length
+    });
+  }, [cursorPosition, content.length]);
+  
+  // Wrap onContentChange to debug when it's called
+  const debugOnContentChange = useCallback((newContent) => {
+    console.log('🔄 CALLBACK DEBUG - onContentChange called:', {
+      newContent: JSON.stringify(newContent),
+      timestamp: new Date().toISOString()
+    });
+    onContentChange(newContent);
+  }, [onContentChange]);
 
   // Convert content to lines for display
   const lines = content.split('\n');
@@ -40,26 +68,66 @@ export default function MultiLineInput({
     const before = content.slice(0, cursorPosition);
     const after = content.slice(cursorPosition);
     const newContent = before + text + after;
+    
+    console.log('✏️ INSERT DEBUG - Inserting text:', {
+      text: JSON.stringify(text),
+      before: JSON.stringify(before),
+      after: JSON.stringify(after),
+      newContent: JSON.stringify(newContent),
+      cursorPosition
+    });
+    
     onContentChange(newContent);
     setCursorPosition(cursorPosition + text.length);
-  }, [content, cursorPosition, onContentChange]);
+  }, [content, cursorPosition, debugOnContentChange]);
 
   // Delete character
   const deleteChar = useCallback((direction = 'backward') => {
+    console.log('🔍 DELETE DEBUG - deleteChar called:', {
+      direction,
+      cursorPosition,
+      contentLength: content.length,
+      content: JSON.stringify(content),
+      canDeleteBackward: direction === 'backward' && cursorPosition > 0,
+      canDeleteForward: direction === 'forward' && cursorPosition < content.length
+    });
+
     if (direction === 'backward' && cursorPosition > 0) {
       // Backspace
       const before = content.slice(0, cursorPosition - 1);
       const after = content.slice(cursorPosition);
-      onContentChange(before + after);
-      setCursorPosition(cursorPosition - 1);
+      const newContent = before + after;
+      const newCursorPos = cursorPosition - 1;
+      
+      console.log('🔍 DELETE DEBUG - Backspace operation:', {
+        before: JSON.stringify(before),
+        after: JSON.stringify(after),
+        newContent: JSON.stringify(newContent),
+        oldCursorPos: cursorPosition,
+        newCursorPos
+      });
+      
+      debugOnContentChange(newContent);
+      setCursorPosition(newCursorPos);
     } else if (direction === 'forward' && cursorPosition < content.length) {
       // Delete
       const before = content.slice(0, cursorPosition);
       const after = content.slice(cursorPosition + 1);
-      onContentChange(before + after);
+      const newContent = before + after;
+      
+      console.log('🔍 DELETE DEBUG - Forward delete operation:', {
+        before: JSON.stringify(before),
+        after: JSON.stringify(after),
+        newContent: JSON.stringify(newContent),
+        cursorPos: cursorPosition
+      });
+      
+      debugOnContentChange(newContent);
       // Cursor position stays the same
+    } else {
+      console.log('🔍 DELETE DEBUG - No delete operation performed (conditions not met)');
     }
-  }, [content, cursorPosition, onContentChange]);
+  }, [content, cursorPosition, debugOnContentChange]);
 
   // Move cursor
   const moveCursor = useCallback((newPos) => {
@@ -69,9 +137,10 @@ export default function MultiLineInput({
 
   // Clear input
   const clearInput = useCallback(() => {
-    onContentChange('');
+    console.log('🧹 CLEAR DEBUG - Clearing input');
+    debugOnContentChange('');
     setCursorPosition(0);
-  }, [onContentChange]);
+  }, [debugOnContentChange]);
 
   // Submit handler
   const handleSubmit = useCallback(() => {
@@ -84,6 +153,13 @@ export default function MultiLineInput({
 
   // Key input handler - only active in INSERT mode
   useInput((input, key) => {
+    console.log('⌨️ KEY DEBUG - Key input received:', {
+      input,
+      key: Object.keys(key).filter(k => key[k]).join(', '),
+      mode,
+      cursorPosition,
+      contentLength: content.length
+    });
     // Always handle Escape to switch to NORMAL mode
     if (key.escape) {
       onModeChange('normal');
@@ -152,12 +228,16 @@ export default function MultiLineInput({
     }
 
     // Delete operations
+    // On Mac, the delete key should delete backward (like backspace)
+    // fn+delete would be forward delete, but that's handled differently by the system
     if (key.delete) {
-      deleteChar('forward');
+      console.log('⌨️ KEY DEBUG - Delete key pressed (treating as backward delete for Mac)');
+      deleteChar('backward');
       return;
     }
 
     if (key.backspace) {
+      console.log('⌨️ KEY DEBUG - Backspace key pressed');
       deleteChar('backward');
       return;
     }
