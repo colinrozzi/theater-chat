@@ -14,7 +14,7 @@
         "command": "/Users/colinrozzi/work/mcp-servers/bin/fs-mcp-server",
         "args": [
           "--allowed-dirs",
-          "/Users/colinrozzi/work/tmp/test-git-actor"
+          "/Users/colinrozzi/work/tools/inline-chat"
         ]
       },
       "tools": null
