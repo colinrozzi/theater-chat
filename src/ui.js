@@ -80,9 +80,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
             const messageText = Buffer.from(message.message).toString('utf8');
             const parsedMessage = JSON.parse(messageText);
 
-            console.log('=== DEBUG: Received message ===');
-            console.log('Message type:', parsedMessage.type);
-            console.log('Full message:', JSON.stringify(parsedMessage, null, 2));
+
 
             if (parsedMessage.type === 'chat_message' && parsedMessage.message) {
               // Check if this is a user message echo (confirmation)
@@ -143,16 +141,12 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
 
                 // IMPROVED: Only clear generating state when we receive end_turn or other completion signals
                 if (stopReason === 'end_turn') {
-                  console.log('Generation complete - received end_turn');
                   setIsGenerating(false);
                 } else if (stopReason === 'stop_sequence' || stopReason === 'max_tokens') {
-                  console.log(`Generation stopped with reason: ${stopReason}`);
                   setIsGenerating(false);
                 } else if (stopReason) {
-                  console.log(`Generation ended with reason: ${stopReason}`);
                   setIsGenerating(false);
                 } else {
-                  console.log('Received assistant message but no stop_reason - continuing generation');
                   // Keep isGenerating=true for intermediate responses
                 }
               }
@@ -165,7 +159,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
 
               addMessage('tool', `${toolDisplayName}`, 'complete');
 
-              console.log(`Tool call: ${toolDisplayName} - keeping generation active`);
+
               // Don't change isGenerating state - we're still in the middle of generation
             }
           } catch (parseError) {
