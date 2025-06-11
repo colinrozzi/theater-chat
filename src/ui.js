@@ -275,12 +275,6 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
             placeholder="Type your question or command..."
             showCursor={!isLoading}
           />
-          {isLoading && (
-            <Box marginLeft={1}>
-              <Spinner type="dots" />
-              <Text color="yellow"> Thinking...</Text>
-            </Box>
-          )}
         </Box>
       )}
     </Box>
