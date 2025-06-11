@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import fs from 'fs';
 import path from 'path';
@@ -24,119 +24,169 @@ try {
 }
 
 /**
- * Simplified multi-line text input component
- * 
- * Features:
- * - Enter adds newline, Ctrl+Enter submits
- * - Basic cursor navigation
- * - Simple and reliable
- * - Comprehensive logging for debugging
+ * Multi-line text input component with race condition fixes
  */
 export default function MultiLineInput({
   placeholder = 'Type your message...',
   onSubmit,
   maxHeight = 6,
-  mode = 'insert', // 'insert' | 'normal'
+  mode = 'insert',
   onModeChange,
   content = '',
   onContentChange
 }) {
-  const [cursorPosition, setCursorPosition] = useState(0);
+  // Single state object to prevent race conditions
+  const [inputState, setInputState] = useState({
+    content: content,
+    cursorPosition: 0
+  });
 
-  logInput(`MultiLineInput initialized with content length: ${content.length}, cursor at: ${cursorPosition}`);
+  // Track if we need to notify parent of content changes
+  const [pendingContentChange, setPendingContentChange] = useState(null);
 
-  // Wrap onContentChange to debug when it's called
-  const debugOnContentChange = useCallback((newContent) => {
-    logInput(`Content change: "${content}" -> "${newContent}" (${content.length} -> ${newContent.length} chars)`);
-    onContentChange(newContent);
-  }, [onContentChange, content]);
+  // Sync with parent content changes (when parent updates content)
+  useEffect(() => {
+    if (inputState.content !== content) {
+      logInput(`Syncing with parent: "${inputState.content}" -> "${content}"`);
+      setInputState(prevState => ({
+        content: content,
+        cursorPosition: Math.min(prevState.cursorPosition, content.length)
+      }));
+    }
+  }, [content, inputState.content]);
+
+  // Notify parent of content changes (separate from state updates)
+  useEffect(() => {
+    if (pendingContentChange !== null) {
+      logInput(`Notifying parent of content change: "${pendingContentChange}"`);
+      onContentChange(pendingContentChange);
+      setPendingContentChange(null);
+    }
+  }, [pendingContentChange, onContentChange]);
 
   // Convert content to lines for display
-  const lines = content.split('\n');
-  const isEmpty = content.length === 0;
+  const lines = inputState.content.split('\n');
+  const isEmpty = inputState.content.length === 0;
 
   // Find cursor row and column
-  const getCursorLocation = useCallback((pos) => {
-    const beforeCursor = content.slice(0, pos);
+  const getCursorLocation = useCallback((pos, contentStr) => {
+    const beforeCursor = contentStr.slice(0, pos);
     const row = beforeCursor.split('\n').length - 1;
     const lastNewline = beforeCursor.lastIndexOf('\n');
     const col = lastNewline === -1 ? pos : pos - lastNewline - 1;
     return { row, col };
-  }, [content]);
+  }, []);
 
-  const { row: cursorRow, col: cursorCol } = getCursorLocation(cursorPosition);
+  const { row: cursorRow, col: cursorCol } = getCursorLocation(inputState.cursorPosition, inputState.content);
 
   // Insert text at cursor
   const insertText = useCallback((text) => {
-    logInput(`Insert text: "${text}" at position ${cursorPosition}`);
-    const before = content.slice(0, cursorPosition);
-    const after = content.slice(cursorPosition);
-    const newContent = before + text + after;
-    const newCursorPos = cursorPosition + text.length;
-
-    logInput(`Insert result: content "${content}" -> "${newContent}", cursor ${cursorPosition} -> ${newCursorPos}`);
+    logInput(`Insert text: "${text}"`);
     
-    debugOnContentChange(newContent);
-    setCursorPosition(newCursorPos);
-  }, [content, cursorPosition, debugOnContentChange]);
+    setInputState(currentState => {
+      const { content: currentContent, cursorPosition: currentCursor } = currentState;
+      const before = currentContent.slice(0, currentCursor);
+      const after = currentContent.slice(currentCursor);
+      const newContent = before + text + after;
+      const newCursorPos = currentCursor + text.length;
+
+      logInput(`Insert: "${currentContent}" -> "${newContent}", cursor ${currentCursor} -> ${newCursorPos}`);
+      
+      // Schedule parent notification
+      setPendingContentChange(newContent);
+      
+      return {
+        content: newContent,
+        cursorPosition: newCursorPos
+      };
+    });
+  }, []);
 
   // Delete character
   const deleteChar = useCallback((direction = 'backward') => {
-    logInput(`Delete character: direction=${direction}, cursor=${cursorPosition}, content="${content}"`);
+    logInput(`Delete attempt: direction=${direction}`);
+    
+    setInputState(currentState => {
+      const { content: currentContent, cursorPosition: currentCursor } = currentState;
+      
+      logInput(`Delete with current state: content="${currentContent}", cursor=${currentCursor}`);
 
-    if (direction === 'backward' && cursorPosition > 0) {
-      // Backspace
-      const before = content.slice(0, cursorPosition - 1);
-      const after = content.slice(cursorPosition);
-      const newContent = before + after;
-      const newCursorPos = cursorPosition - 1;
+      if (direction === 'backward' && currentCursor > 0) {
+        // Backspace
+        const before = currentContent.slice(0, currentCursor - 1);
+        const after = currentContent.slice(currentCursor);
+        const newContent = before + after;
+        const newCursorPos = currentCursor - 1;
 
-      logInput(`Backspace: "${content}" -> "${newContent}", cursor ${cursorPosition} -> ${newCursorPos}`);
-      debugOnContentChange(newContent);
-      setCursorPosition(newCursorPos);
-    } else if (direction === 'forward' && cursorPosition < content.length) {
-      // Delete
-      const before = content.slice(0, cursorPosition);
-      const after = content.slice(cursorPosition + 1);
-      const newContent = before + after;
+        logInput(`Backspace: "${currentContent}" -> "${newContent}", cursor ${currentCursor} -> ${newCursorPos}`);
+        
+        // Schedule parent notification
+        setPendingContentChange(newContent);
+        
+        return {
+          content: newContent,
+          cursorPosition: newCursorPos
+        };
+      } else if (direction === 'forward' && currentCursor < currentContent.length) {
+        // Forward delete
+        const before = currentContent.slice(0, currentCursor);
+        const after = currentContent.slice(currentCursor + 1);
+        const newContent = before + after;
 
-      logInput(`Forward delete: "${content}" -> "${newContent}", cursor stays at ${cursorPosition}`);
-      debugOnContentChange(newContent);
-      // Cursor position stays the same
-    } else {
-      logInput(`Delete ignored: direction=${direction}, cursor=${cursorPosition}, content.length=${content.length}`);
-    }
-  }, [content, cursorPosition, debugOnContentChange]);
+        logInput(`Forward delete: "${currentContent}" -> "${newContent}", cursor stays at ${currentCursor}`);
+        
+        // Schedule parent notification
+        setPendingContentChange(newContent);
+        
+        return {
+          content: newContent,
+          cursorPosition: currentCursor // Stay at same position
+        };
+      } else {
+        logInput(`Delete ignored: direction=${direction}, cursor=${currentCursor}, length=${currentContent.length}`);
+        return currentState; // No change
+      }
+    });
+  }, []);
 
   // Move cursor
   const moveCursor = useCallback((newPos) => {
-    const clampedPos = Math.max(0, Math.min(content.length, newPos));
-    logInput(`Move cursor: ${cursorPosition} -> ${newPos} (clamped to ${clampedPos})`);
-    setCursorPosition(clampedPos);
-  }, [content.length, cursorPosition]);
+    setInputState(currentState => {
+      const clampedPos = Math.max(0, Math.min(currentState.content.length, newPos));
+      logInput(`Move cursor: ${currentState.cursorPosition} -> ${newPos} (clamped to ${clampedPos})`);
+      
+      return {
+        ...currentState,
+        cursorPosition: clampedPos
+      };
+    });
+  }, []);
 
   // Clear input
   const clearInput = useCallback(() => {
-    logInput(`Clear input: "${content}" -> ""`);
-    debugOnContentChange('');
-    setCursorPosition(0);
-  }, [debugOnContentChange, content]);
+    logInput(`Clear input`);
+    setInputState({
+      content: '',
+      cursorPosition: 0
+    });
+    setPendingContentChange('');
+  }, []);
 
   // Submit handler
   const handleSubmit = useCallback(() => {
-    const trimmed = content.trim();
-    logInput(`Submit attempt: content="${content}", trimmed="${trimmed}"`);
+    const trimmed = inputState.content.trim();
+    logInput(`Submit attempt: content="${inputState.content}", trimmed="${trimmed}"`);
     if (trimmed) {
       onSubmit(trimmed);
       clearInput();
     }
-  }, [content, onSubmit, clearInput]);
+  }, [inputState.content, onSubmit, clearInput]);
 
-  // Key input handler - only active in INSERT mode
+  // Key input handler
   useInput((input, key) => {
     logInput(`Key input: input="${input}", key=${JSON.stringify(key)}, mode=${mode}`);
 
-    // Always handle Escape to switch to NORMAL mode
+    // Always handle Escape
     if (key.escape) {
       logInput('Mode change: insert -> normal');
       onModeChange('normal');
@@ -149,87 +199,114 @@ export default function MultiLineInput({
       return;
     }
 
-    // Navigation
+    // Navigation - using functional updates for consistency
     if (key.upArrow) {
       logInput('Navigation: up arrow');
-      const currentLineStart = content.lastIndexOf('\n', cursorPosition - 1);
-      const prevLineStart = currentLineStart > 0 ?
-        content.lastIndexOf('\n', currentLineStart - 1) : -1;
+      setInputState(currentState => {
+        const { content: currentContent, cursorPosition: currentCursor } = currentState;
+        const { col: currentCol } = getCursorLocation(currentCursor, currentContent);
+        
+        const currentLineStart = currentContent.lastIndexOf('\n', currentCursor - 1);
+        const prevLineStart = currentLineStart > 0 ?
+          currentContent.lastIndexOf('\n', currentLineStart - 1) : -1;
 
-      if (prevLineStart !== -1) {
-        const targetCol = cursorCol;
-        const prevLineEnd = currentLineStart;
-        const prevLineLength = prevLineEnd - prevLineStart - 1;
-        const newPos = prevLineStart + 1 + Math.min(targetCol, prevLineLength);
-        moveCursor(newPos);
-      }
+        if (prevLineStart !== -1) {
+          const targetCol = currentCol;
+          const prevLineEnd = currentLineStart;
+          const prevLineLength = prevLineEnd - prevLineStart - 1;
+          const newPos = prevLineStart + 1 + Math.min(targetCol, prevLineLength);
+          
+          return {
+            ...currentState,
+            cursorPosition: Math.max(0, Math.min(currentContent.length, newPos))
+          };
+        }
+        
+        return currentState;
+      });
       return;
     }
 
     if (key.downArrow) {
       logInput('Navigation: down arrow');
-      const currentLineEnd = content.indexOf('\n', cursorPosition);
-      const nextLineEnd = currentLineEnd !== -1 ?
-        content.indexOf('\n', currentLineEnd + 1) : -1;
+      setInputState(currentState => {
+        const { content: currentContent, cursorPosition: currentCursor } = currentState;
+        const { col: currentCol } = getCursorLocation(currentCursor, currentContent);
+        
+        const currentLineEnd = currentContent.indexOf('\n', currentCursor);
+        const nextLineEnd = currentLineEnd !== -1 ?
+          currentContent.indexOf('\n', currentLineEnd + 1) : -1;
 
-      if (currentLineEnd !== -1) {
-        const targetCol = cursorCol;
-        const nextLineStart = currentLineEnd + 1;
-        const nextLineLength = nextLineEnd !== -1 ?
-          nextLineEnd - nextLineStart :
-          content.length - nextLineStart;
-        const newPos = nextLineStart + Math.min(targetCol, nextLineLength);
-        moveCursor(newPos);
-      }
+        if (currentLineEnd !== -1) {
+          const targetCol = currentCol;
+          const nextLineStart = currentLineEnd + 1;
+          const nextLineLength = nextLineEnd !== -1 ?
+            nextLineEnd - nextLineStart :
+            currentContent.length - nextLineStart;
+          const newPos = nextLineStart + Math.min(targetCol, nextLineLength);
+          
+          return {
+            ...currentState,
+            cursorPosition: Math.max(0, Math.min(currentContent.length, newPos))
+          };
+        }
+        
+        return currentState;
+      });
       return;
     }
 
     if (key.leftArrow) {
       logInput('Navigation: left arrow');
-      moveCursor(cursorPosition - 1);
+      moveCursor(inputState.cursorPosition - 1);
       return;
     }
 
     if (key.rightArrow) {
       logInput('Navigation: right arrow');
-      moveCursor(cursorPosition + 1);
+      moveCursor(inputState.cursorPosition + 1);
       return;
     }
 
     // Home/End
     if (key.home) {
       logInput('Navigation: home');
-      const lineStart = content.lastIndexOf('\n', cursorPosition - 1) + 1;
-      moveCursor(lineStart);
+      setInputState(currentState => {
+        const lineStart = currentState.content.lastIndexOf('\n', currentState.cursorPosition - 1) + 1;
+        return {
+          ...currentState,
+          cursorPosition: lineStart
+        };
+      });
       return;
     }
 
     if (key.end) {
       logInput('Navigation: end');
-      const lineEnd = content.indexOf('\n', cursorPosition);
-      moveCursor(lineEnd === -1 ? content.length : lineEnd);
+      setInputState(currentState => {
+        const lineEnd = currentState.content.indexOf('\n', currentState.cursorPosition);
+        return {
+          ...currentState,
+          cursorPosition: lineEnd === -1 ? currentState.content.length : lineEnd
+        };
+      });
       return;
     }
 
-    // Delete operations - FIX: Clearer handling of different delete keys
+    // Delete operations
     if (key.backspace) {
       logInput('Delete: backspace key detected');
       deleteChar('backward');
       return;
     }
 
-    // On Mac/terminal, key.delete might be the forward delete or might be the same as backspace
-    // Let's be more explicit about this
     if (key.delete) {
       logInput('Delete: delete key detected');
-      // Most terminals map "delete" key to backspace behavior
-      // Forward delete is usually fn+delete which shows up differently
-      deleteChar('backward');
+      deleteChar('backward'); // Most terminals treat this as backspace
       return;
     }
 
-    // Alternative approach: check for forward delete specifically
-    // This might show up as a different key combination
+    // Forward delete
     if (key.ctrl && key.name === 'd') {
       logInput('Delete: Ctrl+D (forward delete)');
       deleteChar('forward');
@@ -313,7 +390,7 @@ export default function MultiLineInput({
             <Text color="gray" dimColor>
               ... {lines.length - maxHeight} more lines
             </Text>
-            )}
+          )}
         </Box>
       </Box>
 
@@ -321,7 +398,7 @@ export default function MultiLineInput({
       <Text color="gray" dimColor>
         Line {cursorRow + 1}, Col {cursorCol + 1}
         {lines.length > 1 && ` • ${lines.length} lines`}
-        {!isEmpty && ` • ${content.length} chars`}
+        {!isEmpty && ` • ${inputState.content.length} chars`}
       </Text>
     </Box>
   );
