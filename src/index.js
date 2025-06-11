@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env bun#!/usr/bin/env bun
 
 import { program } from 'commander';
 import chalk from 'chalk';
@@ -8,7 +8,7 @@ import { TheaterClient } from './theater.js';
 import { renderApp } from './ui.js';
 
 // Set up logging
-const logFile = path.join(process.cwd(), 'inline-chat.log');
+const logFile = path.join(process.cwd(), 'theater-chat.log');
 function log(message, level = 'INFO') {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${level}: ${message}\n`;
@@ -16,11 +16,11 @@ function log(message, level = 'INFO') {
 }
 
 // Clear log file on start
-fs.writeFileSync(logFile, `=== inline-chat started at ${new Date().toISOString()} ===\n`);
+fs.writeFileSync(logFile, `=== theater-chat started at ${new Date().toISOString()} ===\n`);
 log('Application started');
 
 program
-  .name('inline-chat')
+  .name('theater-chat')
   .description('Configurable inline chat interface for Theater actors')
   .requiredOption('-c, --config <path>', 'Path to chat configuration JSON file')
   .option('-s, --server <address>', 'Theater server address', '127.0.0.1:9000')
@@ -46,7 +46,7 @@ async function main() {
   });
 
   try {
-    log('Starting inline chat');
+    log('Starting theater chat');
 
     // Load configuration
     const config = loadConfig(options.config);

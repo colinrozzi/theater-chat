@@ -1,15 +1,33 @@
 {
-  "name": "inline-chat",
+  "name": "theater-chat",
   "version": "0.1.0",
-  "description": "Configurable inline chat interface for Theater actors",
+  "description": "Interactive terminal chat interface for Theater actor system with AI and MCP tool integration",
   "main": "src/index.js",
   "type": "module",
-  "bin": {
-    "inline-chat": "./src/index.js"
+  "author": "Colin Rozzi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/colinrozzi/theater-chat.git"
   },
+  "homepage": "https://github.com/colinrozzi/theater-chat#readme",
+  "bugs": {
+    "url": "https://github.com/colinrozzi/theater-chat/issues"
+  },
+  "bin": {
+    "theater-chat": "./src/index.js"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "bun src/index.js",
     "dev": "bun --watch src/index.js",
+    "build": "echo 'No build step needed for now'",
+    "test": "echo 'No tests yet'",
+    "prepublishOnly": "echo 'Running pre-publish checks'",
     "install-deps": "bun install"
   },
   "dependencies": {
@@ -26,11 +44,13 @@
     "bun": ">=1.0.0"
   },
   "keywords": [
+    "theater",
     "chat",
     "cli",
     "ai",
     "terminal",
-    "theater",
-    "inline"
+    "actor",
+    "mcp",
+    "interactive"
   ]
 }

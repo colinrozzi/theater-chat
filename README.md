@@ -1,4 +1,4 @@
-# inline-chat
+# theater-chat
 
 A configurable inline chat interface for Theater actors with rich terminal UI.
 
@@ -13,9 +13,23 @@ A configurable inline chat interface for Theater actors with rich terminal UI.
 
 ## Installation
 
+### From npm (recommended)
+
 ```bash
-cd inline-chat
+# Install globally
+npm install -g theater-chat
+
+# Or with bun
+bun install -g theater-chat
+```
+
+### From source
+
+```bash
+git clone https://github.com/colinrozzi/theater-chat.git
+cd theater-chat
 bun install
+bun link  # Makes theater-chat available globally
 ```
 
 ## Usage
@@ -25,8 +39,8 @@ bun install
 Run with a configuration file:
 
 ```bash
-bun start --config /path/to/config.json
-# or
+theater-chat --config /path/to/config.json
+# or during development
 bun src/index.js --config ./example-config.json
 ```
 
@@ -116,7 +130,7 @@ The configuration file should be a JSON file that defines the chat-state actor c
 ### Running with Initial Message
 
 ```bash
-bun src/index.js --config config.json --message "Hello! Can you help me review this code?"
+theater-chat --config config.json --message "Hello! Can you help me review this code?"
 ```
 
 ## Interactive Mode
@@ -163,7 +177,7 @@ bun run dev
 bun start --config example-config.json
 
 # Test with initial message
-bun src/index.js --config example-config.json --message "Hello!"
+theater-chat --config example-config.json --message "Hello!"
 ```
 
 ## Keyboard Shortcuts
