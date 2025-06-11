@@ -304,7 +304,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
   }, [channel]);
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" marginLeft={2}>
       {/* Header */}
       <ChatHeader config={config} setupStatus={setupStatus} setupMessage={setupMessage} />
 
