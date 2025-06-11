@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 function ChatApp({ theaterClient, actorId, config, initialMessage }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // Renamed for clarity - tracks entire generation sequence
   const [channel, setChannel] = useState(null);
   const [setupStatus, setSetupStatus] = useState('connecting'); // 'connecting', 'opening_channel', 'loading_actor', 'ready', 'error'
   const [setupMessage, setSetupMessage] = useState('Connecting to Theater...');
@@ -80,6 +80,10 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
             const messageText = Buffer.from(message.message).toString('utf8');
             const parsedMessage = JSON.parse(messageText);
 
+            console.log('=== DEBUG: Received message ===');
+            console.log('Message type:', parsedMessage.type);
+            console.log('Full message:', JSON.stringify(parsedMessage, null, 2));
+
             if (parsedMessage.type === 'chat_message' && parsedMessage.message) {
               // Check if this is a user message echo (confirmation)
               const isUserMessage = parsedMessage.message?.entry?.Message?.role === 'user';
@@ -102,7 +106,9 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
                 // This is an assistant message
                 const completion = parsedMessage.message?.entry?.Completion;
                 const message = parsedMessage.message?.entry?.Message;
-                
+                // Extract stop_reason from the correct location
+                const stopReason = completion?.stop_reason || message?.stop_reason || parsedMessage.message?.stop_reason || parsedMessage.stop_reason;
+
                 let content = 'Empty response';
                 if (completion?.content) {
                   // Extract text from completion content array
@@ -135,20 +141,37 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
                   }
                 });
 
-                setIsLoading(false);
+                // IMPROVED: Only clear generating state when we receive end_turn or other completion signals
+                if (stopReason === 'end_turn') {
+                  console.log('Generation complete - received end_turn');
+                  setIsGenerating(false);
+                } else if (stopReason === 'stop_sequence' || stopReason === 'max_tokens') {
+                  console.log(`Generation stopped with reason: ${stopReason}`);
+                  setIsGenerating(false);
+                } else if (stopReason) {
+                  console.log(`Generation ended with reason: ${stopReason}`);
+                  setIsGenerating(false);
+                } else {
+                  console.log('Received assistant message but no stop_reason - continuing generation');
+                  // Keep isGenerating=true for intermediate responses
+                }
               }
             } else if (parsedMessage.type === 'tool_call_delta') {
-              // Handle tool calls - just add the tool call message
+              // Tool call - this is an intermediate step, keep generating state
               const { tool_name, args } = parsedMessage;
 
               // Get a nice display name for the tool
               const toolDisplayName = getToolDisplayName(tool_name, args);
 
               addMessage('tool', `${toolDisplayName}`, 'complete');
+
+              console.log(`Tool call: ${toolDisplayName} - keeping generation active`);
+              // Don't change isGenerating state - we're still in the middle of generation
             }
           } catch (parseError) {
             console.error('Failed to parse message:', parseError);
             addMessage('system', `Error parsing message: ${parseError.message}`, 'complete');
+            setIsGenerating(false); // Clear loading on error
           }
         });
 
@@ -178,7 +201,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     if (!channel || !messageText.trim()) return;
 
     try {
-      setIsLoading(true);
+      setIsGenerating(true); // Start generation sequence
 
       // Add user message as pending
       addPendingMessage('user', messageText.trim());
@@ -194,7 +217,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     } catch (error) {
       console.error('Error sending message:', error);
       addMessage('system', `Error sending message: ${error.message}`, 'complete');
-      setIsLoading(false);
+      setIsGenerating(false); // Clear on error
     }
   }, [channel, addPendingMessage, addMessage]);
 
@@ -264,6 +287,14 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
         />
       ))}
 
+      {/* Global thinking indicator - shows during entire generation sequence */}
+      {isGenerating && (
+        <Box marginBottom={1}>
+          <Spinner type="dots" />
+          <Text color="yellow"> Thinking...</Text>
+        </Box>
+      )}
+
       {/* Input */}
       {setupStatus === 'ready' && (
         <Box borderStyle="round" borderColor="gray" paddingX={1}>
@@ -272,8 +303,8 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            placeholder="Type your question or command..."
-            showCursor={!isLoading}
+            placeholder={isGenerating ? "Generating response..." : "Type your question or command..."}
+            showCursor={!isGenerating}
           />
         </Box>
       )}
@@ -286,7 +317,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
  */
 function ChatHeader({ config, setupStatus, setupMessage }) {
   const title = config.title || 'Chat Session';
-  
+
   // Don't show header if ready - keep it minimal
   if (setupStatus === 'ready') {
     return (
@@ -296,7 +327,7 @@ function ChatHeader({ config, setupStatus, setupMessage }) {
       </Box>
     );
   }
-  
+
   // Show loading state with more info
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -336,13 +367,6 @@ function MessageComponent({ message, toolDisplayMode }) {
 
   return (
     <Box flexDirection="column">
-      {status === 'pending' && role !== 'tool' && (
-        <Box marginBottom={1}>
-          <Spinner type="dots" />
-          <Text color="yellow"> Thinking...</Text>
-        </Box>
-      )}
-
       {content && (
         <Box marginBottom={1}>
           <FormattedContent content={content} role={role} toolDisplayMode={toolDisplayMode} contentColor={contentColor} />
