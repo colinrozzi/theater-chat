@@ -45,6 +45,25 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
     return messageIndex;
   }, [messages.length, addMessage]);
 
+  const addToolMessage = useCallback((toolName) => {
+    setMessages(prev => {
+      // Find the last pending assistant message
+      const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
+        .reverse()
+        .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
+      
+      if (lastAssistantIndex !== undefined) {
+        // Insert tool message before the pending assistant message
+        const newMessages = [...prev];
+        newMessages.splice(lastAssistantIndex, 0, { role: 'tool', content: toolName, status: 'complete' });
+        return newMessages;
+      } else {
+        // Fallback: add at the end
+        return [...prev, { role: 'tool', content: toolName, status: 'complete' }];
+      }
+    });
+  }, []);
+
   // Set up channel communication
   useEffect(() => {
     let setupTimeout;
@@ -113,7 +132,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
                   const toolCalls = completion.content.filter(item => item.type === 'tool_use');
                   for (const toolCall of toolCalls) {
                     const toolDisplayName = getToolDisplayName(toolCall.name, toolCall.input);
-                    addMessage('tool', toolDisplayName, 'complete');
+                    addToolMessage(toolDisplayName);
                   }
 
                   // Extract text content (if any)
@@ -122,7 +141,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
                     .map(item => item.text)
                     .join('');
 
-                  // Only add assistant message if there's text content
+                  // Add assistant message if there's text content
                   if (textContent) {
                     // Check if we have a pending assistant message to update
                     setMessages(prev => {
@@ -154,7 +173,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
                     }).join('');
                   }
 
-                  // Check if we have a pending assistant message to update
+                  // Check if we have a pending assistant message to update, or add new one
                   setMessages(prev => {
                     const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
                       .reverse()
