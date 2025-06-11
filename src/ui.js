@@ -71,8 +71,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
         setChannel(channelStream);
         setSetupStatus('ready');
 
-        // Add the welcome message
-        addMessage('system', setupSteps.ready);
+        // Don't add welcome message - keep it clean
 
         // Set up message handler
         channelStream.onMessage((message) => {
@@ -145,7 +144,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
               // Get a nice display name for the tool
               const toolDisplayName = getToolDisplayName(tool_name, args);
 
-              addMessage('tool', `🔧 ${toolDisplayName}`, 'complete');
+              addMessage('tool', `${toolDisplayName}`, 'complete');
             }
           } catch (parseError) {
             console.error('Failed to parse message:', parseError);
@@ -243,34 +242,32 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
   }, [channel]);
 
   return (
-    <Box flexDirection="column" height={process.stdout.rows - 1}>
+    <Box flexDirection="column">
       {/* Header */}
       <ChatHeader config={config} setupStatus={setupStatus} setupMessage={setupMessage} />
 
-      {/* Instructions */}
-      {showInstructions && setupStatus === 'ready' && (
+      {/* Instructions - only show if no messages yet */}
+      {showInstructions && setupStatus === 'ready' && messages.length === 0 && (
         <Box marginBottom={1}>
           <Text color="gray">
-            💡 Shortcuts: Ctrl+C (exit), Ctrl+L (clear), Ctrl+T (tool display), Ctrl+H (toggle help)
+            Shortcuts: Ctrl+C (exit), Ctrl+L (clear), Ctrl+T (tool display), Ctrl+H (toggle help)
           </Text>
         </Box>
       )}
 
       {/* Messages */}
-      <Box flexDirection="column" flexGrow={1} paddingBottom={1}>
-        {messages.map((message, index) => (
-          <MessageComponent
-            key={index}
-            message={message}
-            toolDisplayMode={toolDisplayMode}
-          />
-        ))}
-      </Box>
+      {messages.map((message, index) => (
+        <MessageComponent
+          key={index}
+          message={message}
+          toolDisplayMode={toolDisplayMode}
+        />
+      ))}
 
       {/* Input */}
       {setupStatus === 'ready' && (
-        <Box>
-          <Text color="gray">💬 </Text>
+        <Box borderStyle="round" borderColor="gray" paddingX={1}>
+          <Text color="cyan">&gt; </Text>
           <TextInput
             value={inputValue}
             onChange={setInputValue}
@@ -295,26 +292,27 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }) {
  */
 function ChatHeader({ config, setupStatus, setupMessage }) {
   const title = config.title || 'Chat Session';
-
-  return (
-    <Box flexDirection="column" paddingBottom={1} borderStyle="round" borderColor="cyan">
-      <Box justifyContent="space-between">
-        <Text color="cyan">🎭 {title}</Text>
-        <Text color="gray">{config.model_config?.model || 'Unknown Model'}</Text>
+  
+  // Don't show header if ready - keep it minimal
+  if (setupStatus === 'ready') {
+    return (
+      <Box marginBottom={1}>
+        <Text color="cyan">{title}</Text>
+        <Text color="gray"> ({config.model_config?.model || 'Unknown Model'})</Text>
       </Box>
-
+    );
+  }
+  
+  // Show loading state with more info
+  return (
+    <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="gray">Status: </Text>
-        {setupStatus === 'ready' ? (
-          <Text color="green">Ready</Text>
-        ) : setupStatus === 'error' ? (
-          <Text color="red">Error</Text>
-        ) : (
-          <Box>
-            <Spinner type="dots" />
-            <Text color="yellow"> {setupMessage}</Text>
-          </Box>
-        )}
+        <Text color="cyan">{title}</Text>
+        <Text color="gray"> ({config.model_config?.model || 'Unknown Model'})</Text>
+      </Box>
+      <Box>
+        <Spinner type="dots" />
+        <Text color="yellow"> {setupMessage}</Text>
       </Box>
     </Box>
   );
@@ -330,34 +328,30 @@ function MessageComponent({ message, toolDisplayMode }) {
     return null;
   }
 
-  const roleColor = {
-    user: 'blue',
-    assistant: 'green',
+  // Skip system messages that are just status updates
+  if (role === 'system' && (content.includes('Type your') || content.includes('Starting with'))) {
+    return null;
+  }
+
+  const contentColor = {
+    user: 'gray',
+    assistant: 'white',
     system: 'gray',
     tool: 'magenta'
   }[role] || 'white';
 
-  const roleIcon = {
-    user: '👤',
-    assistant: '🤖',
-    system: 'ℹ️',
-    tool: '🔧'
-  }[role] || '•';
-
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Box>
-        <Text color={roleColor}>{roleIcon} {role === 'user' ? 'You' : role === 'assistant' ? 'Assistant' : role}: </Text>
-        {status === 'pending' && role !== 'tool' && (
-          <Box marginLeft={1}>
-            <Spinner type="dots" />
-          </Box>
-        )}
-      </Box>
+    <Box flexDirection="column">
+      {status === 'pending' && role !== 'tool' && (
+        <Box marginBottom={1}>
+          <Spinner type="dots" />
+          <Text color="yellow"> Thinking...</Text>
+        </Box>
+      )}
 
       {content && (
-        <Box marginLeft={2}>
-          <FormattedContent content={content} role={role} toolDisplayMode={toolDisplayMode} />
+        <Box marginBottom={1}>
+          <FormattedContent content={content} role={role} toolDisplayMode={toolDisplayMode} contentColor={contentColor} />
         </Box>
       )}
     </Box>
@@ -367,10 +361,10 @@ function MessageComponent({ message, toolDisplayMode }) {
 /**
  * Formatted content component
  */
-function FormattedContent({ content, role, toolDisplayMode }) {
+function FormattedContent({ content, role, toolDisplayMode, contentColor }) {
   // For tool messages, keep them concise unless in full mode
   if (role === 'tool' && toolDisplayMode === 'minimal') {
-    return <Text color="gray">{content}</Text>;
+    return <Text color="magenta">{content}</Text>;
   }
 
   // Split content into lines and render with basic formatting
@@ -379,7 +373,7 @@ function FormattedContent({ content, role, toolDisplayMode }) {
   return (
     <Box flexDirection="column">
       {lines.map((line, index) => (
-        <Text key={index}>{line || ' '}</Text>
+        <Text key={index} color={contentColor}>{line || ' '}</Text>
       ))}
     </Box>
   );
