@@ -202,7 +202,7 @@ export default function MultiLineInput({
           {isEmpty ? (
             <Text>
               <Text backgroundColor="white" color="black"> </Text>
-              <Text color="gray" dimColor>{placeholder}</Text>
+              <Text color="gray">{placeholder}</Text>
             </Text>
           ) : (
             displayLines.map((line, index) => {
