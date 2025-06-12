@@ -201,8 +201,8 @@ export default function MultiLineInput({
         <Box flexDirection="column">
           {isEmpty ? (
             <Text>
-              <Text color="gray" dimColor>{placeholder}</Text>
               <Text backgroundColor="white" color="black"> </Text>
+              <Text color="gray" dimColor>{placeholder}</Text>
             </Text>
           ) : (
             displayLines.map((line, index) => {
