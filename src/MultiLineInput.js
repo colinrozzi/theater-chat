@@ -237,13 +237,13 @@ export default function MultiLineInput({
       </Box>
 
       <Box justifyContent="space-between">
+        <Text color={mode === 'insert' ? 'green' : 'blue'} dimColor>
+          {mode.toUpperCase()}
+        </Text>
         <Text color="gray" dimColor>
           Line {cursorRow + 1}, Col {cursorCol + 1}
           {lines.length > 1 && ` • ${lines.length} lines`}
           {!isEmpty && ` • ${content.length} chars`}
-        </Text>
-        <Text color={mode === 'insert' ? 'green' : 'blue'} dimColor>
-          {mode.toUpperCase()}
         </Text>
       </Box>
     </Box>
