@@ -27,9 +27,26 @@ program
   .option('-s, --server <address>', 'Theater server address', '127.0.0.1:9000')
   .option('-v, --verbose', 'Enable verbose logging')
   .option('-m, --message <text>', 'Send an initial message to start the conversation')
-  .parse();
+  .action(main); // Default action when no subcommand is provided
 
-const options = program.opts();
+// Config management commands
+program
+  .command('list')
+  .alias('ls')
+  .description('List available configurations (defaults to local)')
+  .option('-g, --global', 'Show only global configurations')
+  .option('-a, --all', 'Show both local and global configurations')
+  .action(listConfigs);
+
+program
+  .command('init')
+  .description('Initialize local configuration directory')
+  .option('-g, --global', 'Initialize global config directory instead')
+  .action(initConfigs);
+
+program.parse();
+
+// Remove the manual command checking since Commander handles this now
 
 function getConfigDir() {
   const xdgConfigHome = process.env.XDG_CONFIG_HOME;
@@ -135,7 +152,7 @@ function createDefaultConfigs(configDir) {
         "actor_id": null,
         "stdio": {
           "command": "/path/to/fs-mcp-server",
-          "args": ["--allowed-dirs", process.cwd()]
+          "args": ["--allowed-dirs", "."]
         },
         "tools": null
       }
@@ -189,7 +206,7 @@ function resolveConfigPath(configInput) {
   return `${configInput}.json`;
 }
 
-async function main() {
+async function main(options) {
   let actorId = null;
   let theaterClient = null;
 
@@ -208,16 +225,16 @@ async function main() {
     log('Starting theater chat');
 
     // Resolve and load configuration
-    const configPath = resolveConfigPath(options.config);
+    const configPath = resolveConfigPath(options.config || 'default');
     const config = loadConfig(configPath);
     log(`Loaded config from: ${configPath}`);
-    if (options.verbose) {
+    if (options && options.verbose) {
       log(`Config contents: ${JSON.stringify(config, null, 2)}`);
     }
 
     // Create Theater client
-    log(`Creating Theater client for: ${options.server}`);
-    theaterClient = new TheaterClient(options.server);
+    log(`Creating Theater client for: ${options.server || '127.0.0.1:9000'}`);
+    theaterClient = new TheaterClient(options.server || '127.0.0.1:9000');
 
     // Start the chat actor
     actorId = await theaterClient.startChatActor(config);
@@ -287,7 +304,165 @@ function validateConfig(config) {
   log('Config validation passed');
 }
 
-main().catch(async (error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Config management functions
+function listConfigs(options) {
+  // Default to showing only local, unless --global or --all is specified
+  const showGlobal = options.global || options.all;
+  const showLocal = !options.global; // Show local unless --global is specified
+  
+  console.log(chalk.blue('📋 Available Configurations'));
+  console.log('');
+  
+  if (showLocal) {
+    console.log(chalk.yellow('📁 Local Configurations'));
+    const localConfigDir = '.theater-chat';
+    
+    if (!fs.existsSync(localConfigDir)) {
+      console.log(chalk.gray('  No local config directory found'));
+      console.log(chalk.gray(`  Run 'theater-chat init' to create`));
+    } else {
+      listConfigsInDirectory(localConfigDir, '  ');
+    }
+    console.log('');
+  }
+  
+  if (showGlobal) {
+    console.log(chalk.yellow('🌍 Global Configurations'));
+    const configDir = getConfigDir();
+    
+    if (!fs.existsSync(configDir)) {
+      console.log(chalk.gray('  No global config directory found'));
+      console.log(chalk.gray(`  Run 'theater-chat init --global' to create`));
+    } else {
+      listConfigsInDirectory(configDir, '  ');
+    }
+    console.log('');
+  }
+  
+  if (showLocal) {
+    console.log(chalk.blue('💡 Usage:'));
+    console.log('  theater-chat                    # Uses default config');
+    console.log('  theater-chat --config sonnet    # Uses sonnet config');
+    console.log('  theater-chat --config sonnet/fs # Uses sonnet/fs config');
+    console.log('');
+    console.log(chalk.gray('  Use --all to see global configs, --global for global only'));
+  }
+}
+
+function listConfigsInDirectory(dir, indent = '', prefix = '') {
+  try {
+    const items = fs.readdirSync(dir, { withFileTypes: true });
+    const configs = [];
+    const subdirs = [];
+    
+    for (const item of items) {
+      if (item.isFile() && item.name.endsWith('.json')) {
+        const configName = item.name.replace('.json', '');
+        configs.push(configName);
+      } else if (item.isDirectory()) {
+        subdirs.push(item.name);
+      }
+    }
+    
+    // Sort and display configs
+    configs.sort().forEach(config => {
+      const configPath = path.join(dir, `${config}.json`);
+      const fullConfigName = prefix ? `${prefix}/${config}` : config;
+      try {
+        const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        const title = configData.title || 'No title';
+        const model = configData.model_config?.model || 'Unknown model';
+        console.log(`${indent}${chalk.green(fullConfigName)} - ${chalk.cyan(title)} (${chalk.gray(model)})`);
+      } catch (error) {
+        console.log(`${indent}${chalk.green(fullConfigName)} - ${chalk.red('Invalid JSON')}`);
+      }
+    });
+    
+    // Recursively list subdirectories
+    subdirs.sort().forEach(subdir => {
+      const subdirPath = path.join(dir, subdir);
+      const subdirItems = fs.readdirSync(subdirPath, { withFileTypes: true });
+      const hasConfigs = subdirItems.some(item => item.isFile() && item.name.endsWith('.json'));
+      
+      if (hasConfigs) {
+        const newPrefix = prefix ? `${prefix}/${subdir}` : subdir;
+        listConfigsInDirectory(subdirPath, indent, newPrefix);
+      }
+    });
+    
+    if (configs.length === 0 && subdirs.length === 0) {
+      console.log(`${indent}${chalk.gray('No configurations found')}`);
+    }
+  } catch (error) {
+    console.log(`${indent}${chalk.red('Error reading directory:')} ${error.message}`);
+  }
+}
+
+function initConfigs(options) {
+  // Default to local init unless --global is specified
+  const initGlobal = options.global;
+  const initLocal = !options.global;
+  
+  console.log(chalk.blue('🚀 Initializing Configuration Directory'));
+  console.log('');
+  
+  if (initGlobal) {
+    const configDir = getConfigDir();
+    if (fs.existsSync(configDir)) {
+      console.log(chalk.yellow(`✓ Global config directory already exists: ${configDir}`));
+    } else {
+      createDefaultConfigs(configDir);
+    }
+  }
+  
+  if (initLocal) {
+    const localConfigDir = '.theater-chat';
+    if (fs.existsSync(localConfigDir)) {
+      console.log(chalk.yellow(`✓ Local config directory already exists: ${path.resolve(localConfigDir)}`));
+    } else {
+      fs.mkdirSync(localConfigDir, { recursive: true });
+      
+      // Create a simple example local config
+      const exampleConfig = {
+        model_config: {
+          model: "claude-sonnet-4-20250514",
+          provider: "anthropic"
+        },
+        temperature: 1.0,
+        max_tokens: 8192,
+        system_prompt: `You are a helpful programming assistant working on the ${path.basename(process.cwd())} project.`,
+        title: `${path.basename(process.cwd())} Assistant`,
+        mcp_servers: [
+          {
+            "actor_id": null,
+            "stdio": {
+              "command": "/path/to/fs-mcp-server",
+              "args": ["--allowed-dirs", "."]
+            },
+            "tools": null
+          }
+        ]
+      };
+      
+      fs.writeFileSync(
+        path.join(localConfigDir, 'default.json'), 
+        JSON.stringify(exampleConfig, null, 2)
+      );
+      
+      console.log(chalk.green(`✓ Created local config directory: ${path.resolve(localConfigDir)}`));
+      console.log(chalk.blue('  Created example config:'));
+      console.log(`    default - ${exampleConfig.title}`);
+      console.log('');
+      console.log(chalk.gray('  Tip: Add .theater-chat/ to your .gitignore to keep configs private'));
+    }
+  }
+  
+  console.log('');
+  console.log(chalk.blue('💡 Next steps:'));
+  console.log('  theater-chat list               # See local configs');
+  console.log('  theater-chat list --all         # See all configs');
+  console.log('  theater-chat                    # Start chat with default config');
+  console.log('  theater-chat --config sonnet    # Use a specific config');
+}
+
+// Main is now called automatically by Commander when no subcommand is provided

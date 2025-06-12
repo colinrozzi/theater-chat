@@ -1,0 +1,23 @@
+{
+  "model_config": {
+    "model": "gemini-1.5-pro",
+    "provider": "google"
+  },
+  "temperature": 1,
+  "max_tokens": 8192,
+  "system_prompt": "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
+  "title": "Sonnet + Filesystem",
+  "mcp_servers": [
+    {
+      "actor_id": null,
+      "stdio": {
+        "command": "/Users/colinrozzi/work/mcp-servers/bin/fs-mcp-server",
+        "args": [
+          "--allowed-dirs",
+          "/Users/colinrozzi/work/"
+        ]
+      },
+      "tools": null
+    }
+  ]
+}
