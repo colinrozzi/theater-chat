@@ -200,7 +200,10 @@ export default function MultiLineInput({
       >
         <Box flexDirection="column">
           {isEmpty ? (
-            <Text color="gray" dimColor>{placeholder}</Text>
+            <Text>
+              <Text color="gray" dimColor>{placeholder}</Text>
+              <Text backgroundColor="white" color="black"> </Text>
+            </Text>
           ) : (
             displayLines.map((line, index) => {
               const isCurrentLine = index === cursorRow && cursorRow < maxHeight;

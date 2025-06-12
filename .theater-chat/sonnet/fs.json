@@ -1,12 +1,12 @@
 {
   "model_config": {
-    "model": "gemini-2.5-pro-preview-06-05",
-    "provider": "google"
+    "model": "claude-sonnet-4-20250514",
+    "provider": "anthropic"
   },
   "temperature": 1,
   "max_tokens": 8192,
   "system_prompt": "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
-  "title": "Gemini + Filesystem",
+  "title": "Sonnet + Filesystem",
   "mcp_servers": [
     {
       "actor_id": null,
