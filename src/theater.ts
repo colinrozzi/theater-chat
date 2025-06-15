@@ -3,10 +3,11 @@ import { EventEmitter } from 'node:events';
 import net from 'node:net';
 import fs from 'fs';
 import path from 'path';
+import type { ChatConfig, TheaterMessage, WSMessage } from './types.js';
 
 // Logging utility
 const logFile = path.join(process.cwd(), 'theater-client.log');
-function log(message, level = 'INFO') {
+function log(message: string, level: string = 'INFO'): void {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${level}: ${message}\n`;
   // Don't console.log when UI is running - interferes with Ink
@@ -14,24 +15,68 @@ function log(message, level = 'INFO') {
 }
 fs.writeFileSync(logFile, `=== Theater Client started at ${new Date().toISOString()} ===\n`);
 
+interface FrameMessage {
+  Complete?: number[];
+  Fragment?: any;
+}
+
+interface ManagementCommand {
+  [key: string]: any;
+}
+
+interface ActorStartResponse {
+  ActorStarted?: { id: string };
+  Error?: any;
+}
+
+interface ChannelResponse {
+  ChannelOpened?: { channel_id: string };
+  ChannelMessage?: {
+    sender_id: string;
+    message: number[];
+  };
+  ChannelClosed?: any;
+  Error?: any;
+}
+
+interface ActorListResponse {
+  ActorList?: { actors: any[] };
+  Error?: any;
+}
+
+interface ActorStatusResponse {
+  ActorStatus?: { status: any };
+  Error?: any;
+}
+
+interface ActorStoppedResponse {
+  ActorStopped?: any;
+  Error?: any;
+}
+
+type TheaterResponse = ActorStartResponse | ChannelResponse | ActorListResponse | ActorStatusResponse | ActorStoppedResponse;
+
 /**
  * A single connection to the Theater server
  * Each connection is dedicated to a specific operation to avoid response multiplexing
  */
 export class TheaterConnection extends EventEmitter {
-  constructor(host, port) {
+  private host: string;
+  private port: number;
+  private socket: net.Socket | null = null;
+  private dataBuffer: Buffer = Buffer.alloc(0);
+  public connected: boolean = false;
+
+  constructor(host: string, port: number) {
     super();
     this.host = host;
     this.port = port;
-    this.socket = null;
-    this.dataBuffer = Buffer.alloc(0);
-    this.connected = false;
 
     // Prevent EventTarget memory leak warnings
     this.setMaxListeners(20);
   }
 
-  async connect() {
+  async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.socket = new net.Socket();
 
@@ -56,7 +101,7 @@ export class TheaterConnection extends EventEmitter {
     });
   }
 
-  handleData(data) {
+  private handleData(data: Buffer): void {
     // Accumulate data in buffer
     if (!this.dataBuffer) {
       this.dataBuffer = Buffer.alloc(0);
@@ -78,10 +123,10 @@ export class TheaterConnection extends EventEmitter {
 
         try {
           const messageStr = messageBytes.toString('utf8');
-          const frameMessage = JSON.parse(messageStr);
+          const frameMessage: FrameMessage = JSON.parse(messageStr);
 
           // Unwrap FragmentingCodec format
-          let actualMessage;
+          let actualMessage: TheaterResponse;
           if (frameMessage.Complete) {
             // FrameType::Complete - convert byte array back to JSON
             const messageBytes = Buffer.from(frameMessage.Complete);
@@ -99,7 +144,8 @@ export class TheaterConnection extends EventEmitter {
 
           this.emit('message', actualMessage);
         } catch (error) {
-          this.emit('error', new Error(`Failed to parse message: ${error.message}`));
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.emit('error', new Error(`Failed to parse message: ${errorMessage}`));
         }
       } else {
         // Not enough data for complete message, wait for more
@@ -108,13 +154,13 @@ export class TheaterConnection extends EventEmitter {
     }
   }
 
-  async send(command, data = {}) {
-    if (!this.connected) {
+  async send(command: string, data: any = {}): Promise<void> {
+    if (!this.connected || !this.socket) {
       throw new Error('Connection not established');
     }
 
     // Structure the command exactly like the Rust ManagementCommand enum
-    const commandMessage = {
+    const commandMessage: ManagementCommand = {
       [command]: data
     };
 
@@ -122,7 +168,7 @@ export class TheaterConnection extends EventEmitter {
     const commandBytes = Buffer.from(JSON.stringify(commandMessage), 'utf8');
 
     // Wrap in FragmentingCodec format (FrameType::Complete for small messages)
-    const frameMessage = {
+    const frameMessage: FrameMessage = {
       Complete: Array.from(commandBytes)
     };
 
@@ -135,7 +181,7 @@ export class TheaterConnection extends EventEmitter {
     this.socket.write(Buffer.concat([lengthPrefix, messageBytes]));
   }
 
-  async receive() {
+  async receive(): Promise<TheaterResponse> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         cleanup();
@@ -149,12 +195,12 @@ export class TheaterConnection extends EventEmitter {
         this.removeListener('disconnect', onDisconnect);
       };
 
-      const onMessage = (message) => {
+      const onMessage = (message: TheaterResponse) => {
         cleanup();
         resolve(message);
       };
 
-      const onError = (error) => {
+      const onError = (error: Error) => {
         cleanup();
         reject(error);
       };
@@ -171,11 +217,22 @@ export class TheaterConnection extends EventEmitter {
     });
   }
 
-  close() {
+  close(): void {
     if (this.socket) {
       this.socket.end();
     }
   }
+}
+
+interface ChannelMessageHandler {
+  (message: { sender_id: string; message: number[] }): void;
+}
+
+interface ChannelStream {
+  channelId: string;
+  onMessage(handler: ChannelMessageHandler): () => void;
+  sendMessage(message: string): Promise<void>;
+  close(): void;
 }
 
 /**
@@ -183,17 +240,20 @@ export class TheaterConnection extends EventEmitter {
  * Each operation gets its own connection to avoid response multiplexing
  */
 export class TheaterClient {
-  constructor(serverAddress) {
+  private host: string;
+  private port: number;
+  private activeTasks: Set<any> = new Set();
+
+  constructor(serverAddress: string) {
     const [host, port] = serverAddress.split(':');
     this.host = host;
     this.port = parseInt(port);
-    this.activeTasks = new Set();
   }
 
   /**
    * Create a new connection for a specific operation
    */
-  async createConnection() {
+  private async createConnection(): Promise<TheaterConnection> {
     const connection = new TheaterConnection(this.host, this.port);
     await connection.connect();
     return connection;
@@ -202,7 +262,7 @@ export class TheaterClient {
   /**
    * Start an actor and return its ID
    */
-  async startChatActor(config) {
+  async startChatActor(config: ChatConfig): Promise<string> {
     log('Starting chat actor...');
     const connection = await this.createConnection();
     log('Connection created for startChatActor');
@@ -228,9 +288,9 @@ export class TheaterClient {
       while (true) {
         const response = await connection.receive();
 
-        if (response.ActorStarted) {
+        if ('ActorStarted' in response && response.ActorStarted) {
           return response.ActorStarted.id;
-        } else if (response.Error) {
+        } else if ('Error' in response && response.Error) {
           throw new Error(`Failed to start actor: ${JSON.stringify(response.Error)}`);
         }
         // Ignore other responses
@@ -243,10 +303,10 @@ export class TheaterClient {
   /**
    * Open a channel and return a message stream
    */
-  async openChannelStream(actorId) {
+  async openChannelStream(actorId: string): Promise<ChannelStream> {
     const connection = await this.createConnection();
-    const messageHandlers = new Set();
-    let channelId = null;
+    const messageHandlers = new Set<ChannelMessageHandler>();
+    let channelId: string | null = null;
     const self = this; // Capture reference to TheaterClient
     const targetActorId = actorId; // Capture actorId for use in sendMessage
 
@@ -257,7 +317,7 @@ export class TheaterClient {
     });
 
     // Start continuous message listening
-    const startMessageListener = async () => {
+    const startMessageListener = async (): Promise<void> => {
       log('Starting message listener loop');
       try {
         while (true) {
@@ -265,10 +325,10 @@ export class TheaterClient {
           const message = await connection.receive();
           log(`Received message: ${JSON.stringify(message)}`);
 
-          if (message.ChannelOpened) {
+          if ('ChannelOpened' in message && message.ChannelOpened) {
             channelId = message.ChannelOpened.channel_id;
             log(`Channel opened: ${channelId}`);
-          } else if (message.ChannelMessage) {
+          } else if ('ChannelMessage' in message && message.ChannelMessage) {
             log(`Received channel message from ${message.ChannelMessage.sender_id}, length: ${message.ChannelMessage.message.length}`);
             const fullMessageText = Buffer.from(message.ChannelMessage.message).toString('utf8');
             log(`Full message content: ${fullMessageText}`);
@@ -278,13 +338,14 @@ export class TheaterClient {
               try {
                 handler(message.ChannelMessage);
               } catch (error) {
-                log(`Error in message handler: ${error.message}`, 'ERROR');
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                log(`Error in message handler: ${errorMessage}`, 'ERROR');
               }
             }
-          } else if (message.ChannelClosed) {
+          } else if ('ChannelClosed' in message && message.ChannelClosed) {
             log('Channel closed');
             break;
-          } else if (message.Error) {
+          } else if ('Error' in message && message.Error) {
             log(`Channel error: ${JSON.stringify(message.Error)}`, 'ERROR');
             break;
           } else {
@@ -292,19 +353,21 @@ export class TheaterClient {
           }
         }
       } catch (error) {
-        log(`Message listener error: ${error.message}`, 'ERROR');
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log(`Message listener error: ${errorMessage}`, 'ERROR');
       }
     };
 
     // Start the message listener in the background with restart capability
-    const startListener = async () => {
+    const startListener = async (): Promise<void> => {
       while (true) {
         try {
           await startMessageListener();
           log('Message listener ended, restarting in 1 second...');
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error) {
-          log(`Failed to restart message listener: ${error.message}`, 'ERROR');
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          log(`Failed to restart message listener: ${errorMessage}`, 'ERROR');
           break;
         }
       }
@@ -328,7 +391,7 @@ export class TheaterClient {
       channelId,
 
       // Add message handler
-      onMessage(handler) {
+      onMessage(handler: ChannelMessageHandler): () => void {
         log(`Adding message handler, total handlers: ${messageHandlers.size + 1}`);
         messageHandlers.add(handler);
         return () => {
@@ -338,7 +401,7 @@ export class TheaterClient {
       },
 
       // Send message on this channel
-      async sendMessage(message) {
+      async sendMessage(message: string): Promise<void> {
         log(`Sending message: ${message}`);
         const sendConnection = await self.createConnection();
         try {
@@ -362,7 +425,7 @@ export class TheaterClient {
 
           const addResponse = await sendConnection.receive();
           log(`AddMessage response: ${JSON.stringify(addResponse)}`);
-          if (addResponse.Error) {
+          if ('Error' in addResponse && addResponse.Error) {
             throw new Error(`Failed to add message: ${JSON.stringify(addResponse.Error)}`);
           }
 
@@ -379,7 +442,7 @@ export class TheaterClient {
 
           const generateResponse = await sendConnection.receive();
           log(`GenerateCompletion response: ${JSON.stringify(generateResponse)}`);
-          if (generateResponse.Error) {
+          if ('Error' in generateResponse && generateResponse.Error) {
             throw new Error(`Failed to generate completion: ${JSON.stringify(generateResponse.Error)}`);
           }
           log('Message send completed successfully');
@@ -389,7 +452,7 @@ export class TheaterClient {
       },
 
       // Close the channel
-      close() {
+      close(): void {
         connection.close();
       }
     };
@@ -398,7 +461,7 @@ export class TheaterClient {
   /**
    * Send a message to an actor (one-shot operation)
    */
-  async sendActorMessage(actorId, message) {
+  async sendActorMessage(actorId: string, message: string): Promise<void> {
     const connection = await this.createConnection();
 
     try {
@@ -435,7 +498,7 @@ export class TheaterClient {
       // Wait for response
       const response = await connection.receive();
 
-      if (response.Error) {
+      if ('Error' in response && response.Error) {
         throw new Error(`Actor message failed: ${JSON.stringify(response.Error)}`);
       }
 
@@ -447,7 +510,7 @@ export class TheaterClient {
   /**
    * List all actors (one-shot operation)
    */
-  async listActors() {
+  async listActors(): Promise<any[]> {
     const connection = await this.createConnection();
 
     try {
@@ -455,9 +518,9 @@ export class TheaterClient {
 
       const response = await connection.receive();
 
-      if (response.ActorList) {
+      if ('ActorList' in response && response.ActorList) {
         return response.ActorList.actors;
-      } else if (response.Error) {
+      } else if ('Error' in response && response.Error) {
         throw new Error(`Failed to list actors: ${JSON.stringify(response.Error)}`);
       }
 
@@ -470,7 +533,7 @@ export class TheaterClient {
   /**
    * Get actor status (one-shot operation)
    */
-  async getActorStatus(actorId) {
+  async getActorStatus(actorId: string): Promise<any> {
     const connection = await this.createConnection();
 
     try {
@@ -480,9 +543,9 @@ export class TheaterClient {
 
       const response = await connection.receive();
 
-      if (response.ActorStatus) {
+      if ('ActorStatus' in response && response.ActorStatus) {
         return response.ActorStatus.status;
-      } else if (response.Error) {
+      } else if ('Error' in response && response.Error) {
         throw new Error(`Failed to get actor status: ${JSON.stringify(response.Error)}`);
       }
 
@@ -495,7 +558,7 @@ export class TheaterClient {
   /**
    * Stop an actor (one-shot operation)
    */
-  async stopActor(actorId) {
+  async stopActor(actorId: string): Promise<boolean> {
     const connection = await this.createConnection();
 
     try {
@@ -505,9 +568,9 @@ export class TheaterClient {
 
       const response = await connection.receive();
 
-      if (response.ActorStopped) {
+      if ('ActorStopped' in response && response.ActorStopped) {
         return true;
-      } else if (response.Error) {
+      } else if ('Error' in response && response.Error) {
         throw new Error(`Failed to stop actor: ${JSON.stringify(response.Error)}`);
       }
 
