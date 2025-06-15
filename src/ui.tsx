@@ -10,7 +10,7 @@ interface ChatAppProps {
   theaterClient: TheaterClient;
   actorId: string;
   config: ChatConfig;
-  initialMessage?: string;
+  initialMessage?: string | undefined;
 }
 
 interface ChatHeaderProps {
@@ -168,7 +168,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
                 // Check if this completion contains tool calls
                 if (completion?.content) {
                   // Process tool calls first
-                  const toolCalls = completion.content.filter(item => item.type === 'tool_use');
+                  const toolCalls = completion.content.filter((item: any) => item.type === 'tool_use');
                   for (const toolCall of toolCalls) {
                     // Convert input object to args array for display
                     const toolArgs = toolCall.input ? Object.entries(toolCall.input).map(([key, value]) => {
@@ -332,7 +332,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
       setToolDisplayMode(prev => {
         const modes: ToolDisplayMode[] = ['hidden', 'minimal', 'full'];
         const currentIndex = modes.indexOf(prev);
-        return modes[(currentIndex + 1) % modes.length];
+        return modes[(currentIndex + 1) % modes.length] as ToolDisplayMode;
       });
     }
 

@@ -254,7 +254,7 @@ export class TheaterClient {
    * Create a new connection for a specific operation
    */
   private async createConnection(): Promise<TheaterConnection> {
-    const connection = new TheaterConnection(this.host, this.port);
+    const connection = new TheaterConnection(this.host!, this.port);
     await connection.connect();
     return connection;
   }

@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useCallback } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import fs from 'fs';
 import path from 'path';
@@ -86,7 +85,7 @@ export default function MultiLineInput({
       const after = content.slice(cursorPosition + 1);
       const newContent = before + after;
 
-      onContentChange(newContent);
+      onContentChange?.(newContent);
       // Cursor stays same for forward delete
     }
   }, [content, cursorPosition, onContentChange, onCursorChange]);
