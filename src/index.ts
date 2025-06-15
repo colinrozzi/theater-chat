@@ -67,26 +67,26 @@ function createDefaultConfigs(configDir: string): void {
   // Default config - Claude Sonnet 4
   const defaultConfig: ChatConfig = {
     model_config: {
-      model: \"claude-sonnet-4-20250514\",
-      provider: \"anthropic\"
+      model: "claude-sonnet-4-20250514",
+      provider: "anthropic"
     },
     temperature: 1.0,
     max_tokens: 8192,
-    system_prompt: \"You are a helpful assistant.\",
-    title: \"Theater Chat\",
+    system_prompt: "You are a helpful assistant.",
+    title: "Theater Chat",
     mcp_servers: []
   };
   
   // Sonnet base config
   const sonnetConfig: ChatConfig = {
     model_config: {
-      model: \"claude-sonnet-4-20250514\",
-      provider: \"anthropic\"
+      model: "claude-sonnet-4-20250514",
+      provider: "anthropic"
     },
     temperature: 1.0,
     max_tokens: 8192,
-    system_prompt: \"You are a helpful programming assistant.\",
-    title: \"Sonnet Assistant\",
+    system_prompt: "You are a helpful programming assistant.",
+    title: "Sonnet Assistant",
     mcp_servers: []
   };
   
@@ -96,31 +96,31 @@ function createDefaultConfigs(configDir: string): void {
   
   const sonnetGitConfig: ChatConfig = {
     ...sonnetConfig,
-    system_prompt: \"You are a helpful programming assistant with git access. You can help with version control, reviewing changes, and managing repositories.\",
-    title: \"Sonnet + Git\",
+    system_prompt: "You are a helpful programming assistant with git access. You can help with version control, reviewing changes, and managing repositories.",
+    title: "Sonnet + Git",
     mcp_servers: [
       {
-        \"actor_id\": null,
-        \"actor\": {
-          \"manifest_path\": \"/path/to/git-mcp-actor/manifest.toml\"
+        "actor_id": null,
+        "actor": {
+          "manifest_path": "/path/to/git-mcp-actor/manifest.toml"
         },
-        \"tools\": null
+        "tools": null
       }
     ]
   };
   
   const sonnetFsConfig: ChatConfig = {
     ...sonnetConfig,
-    system_prompt: \"You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.\",
-    title: \"Sonnet + Filesystem\",
+    system_prompt: "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
+    title: "Sonnet + Filesystem",
     mcp_servers: [
       {
-        \"actor_id\": null,
-        \"stdio\": {
-          \"command\": \"/path/to/fs-mcp-server\",
-          \"args\": [\"--allowed-dirs\", \".\"]
+        "actor_id": null,
+        "stdio": {
+          "command": "/path/to/fs-mcp-server",
+          "args": ["--allowed-dirs", "."]
         },
-        \"tools\": null
+        "tools": null
       }
     ]
   };
@@ -131,13 +131,13 @@ function createDefaultConfigs(configDir: string): void {
   
   const geminiConfig: ChatConfig = {
     model_config: {
-      model: \"gemini-1.5-pro\",
-      provider: \"google\"
+      model: "gemini-1.5-pro",
+      provider: "google"
     },
     temperature: 1.0,
     max_tokens: 8192,
-    system_prompt: \"You are a helpful programming assistant.\",
-    title: \"Gemini Assistant\",
+    system_prompt: "You are a helpful programming assistant.",
+    title: "Gemini Assistant",
     mcp_servers: []
   };
   
@@ -149,22 +149,22 @@ function createDefaultConfigs(configDir: string): void {
   fs.writeFileSync(path.join(configDir, 'gemini.json'), JSON.stringify(geminiConfig, null, 2));
   fs.writeFileSync(path.join(geminiDir, 'fs.json'), JSON.stringify({
     ...geminiConfig,
-    title: \"Gemini + Filesystem\",
-    system_prompt: \"You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.\",
+    title: "Gemini + Filesystem",
+    system_prompt: "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
     mcp_servers: [
       {
-        \"actor_id\": null,
-        \"stdio\": {
-          \"command\": \"/path/to/fs-mcp-server\",
-          \"args\": [\"--allowed-dirs\", \".\"]
+        "actor_id": null,
+        "stdio": {
+          "command": "/path/to/fs-mcp-server",
+          "args": ["--allowed-dirs", "."]
         },
-        \"tools\": null
+        "tools": null
       }
     ]
   }, null, 2));
   
   log(`Created default configurations in ${configDir}`);
-  console.log(chalk.green(`✓ Created configuration directory at ${configDir}`));
+  console.log(chalk.green(`* Created configuration directory at ${configDir}`));
   console.log(chalk.blue('Available configs:'));
   console.log('  default       - Basic Claude Sonnet 4');
   console.log('  sonnet        - Programming assistant');
@@ -319,11 +319,11 @@ function listConfigs(options: ConfigListOptions): void {
   const showGlobal = options.global || options.all;
   const showLocal = !options.global; // Show local unless --global is specified
   
-  console.log(chalk.blue('📋 Available Configurations'));
+  console.log(chalk.blue('* Available Configurations'));
   console.log('');
   
   if (showLocal) {
-    console.log(chalk.yellow('📁 Local Configurations'));
+    console.log(chalk.yellow('* Local Configurations'));
     const localConfigDir = '.theater-chat';
     
     if (!fs.existsSync(localConfigDir)) {
@@ -336,7 +336,7 @@ function listConfigs(options: ConfigListOptions): void {
   }
   
   if (showGlobal) {
-    console.log(chalk.yellow('🌍 Global Configurations'));
+    console.log(chalk.yellow('* Global Configurations'));
     const configDir = getConfigDir();
     
     if (!fs.existsSync(configDir)) {
@@ -349,7 +349,7 @@ function listConfigs(options: ConfigListOptions): void {
   }
   
   if (showLocal) {
-    console.log(chalk.blue('💡 Usage:'));
+    console.log(chalk.blue('* Usage:'));
     console.log('  theater-chat                    # Uses default config');
     console.log('  theater-chat --config sonnet    # Uses sonnet config');
     console.log('  theater-chat --config sonnet/fs # Uses sonnet/fs config');
@@ -413,13 +413,13 @@ function initConfigs(options: ConfigInitOptions): void {
   const initGlobal = options.global;
   const initLocal = !options.global;
   
-  console.log(chalk.blue('🚀 Initializing Configuration Directory'));
+  console.log(chalk.blue('* Initializing Configuration Directory'));
   console.log('');
   
   if (initGlobal) {
     const configDir = getConfigDir();
     if (fs.existsSync(configDir)) {
-      console.log(chalk.yellow(`✓ Global config directory already exists: ${configDir}`));
+      console.log(chalk.yellow(`* Global config directory already exists: ${configDir}`));
     } else {
       createDefaultConfigs(configDir);
     }
@@ -428,15 +428,15 @@ function initConfigs(options: ConfigInitOptions): void {
   if (initLocal) {
     const localConfigDir = '.theater-chat';
     if (fs.existsSync(localConfigDir)) {
-      console.log(chalk.yellow(`✓ Local config directory already exists: ${path.resolve(localConfigDir)}`));
+      console.log(chalk.yellow(`* Local config directory already exists: ${path.resolve(localConfigDir)}`));
     } else {
       fs.mkdirSync(localConfigDir, { recursive: true });
       
       // Create a simple example local config
       const exampleConfig: ChatConfig = {
         model_config: {
-          model: \"claude-sonnet-4-20250514\",
-          provider: \"anthropic\"
+          model: "claude-sonnet-4-20250514",
+          provider: "anthropic"
         },
         temperature: 1.0,
         max_tokens: 8192,
@@ -444,12 +444,12 @@ function initConfigs(options: ConfigInitOptions): void {
         title: `${path.basename(process.cwd())} Assistant`,
         mcp_servers: [
           {
-            \"actor_id\": null,
-            \"stdio\": {
-              \"command\": \"/path/to/fs-mcp-server\",
-              \"args\": [\"--allowed-dirs\", \".\"]
+            "actor_id": null,
+            "stdio": {
+              "command": "/path/to/fs-mcp-server",
+              "args": ["--allowed-dirs", "."]
             },
-            \"tools\": null
+            "tools": null
           }
         ]
       };
@@ -459,7 +459,7 @@ function initConfigs(options: ConfigInitOptions): void {
         JSON.stringify(exampleConfig, null, 2)
       );
       
-      console.log(chalk.green(`✓ Created local config directory: ${path.resolve(localConfigDir)}`));
+      console.log(chalk.green(`* Created local config directory: ${path.resolve(localConfigDir)}`));
       console.log(chalk.blue('  Created example config:'));
       console.log(`    default - ${exampleConfig.title}`);
       console.log('');
@@ -468,7 +468,7 @@ function initConfigs(options: ConfigInitOptions): void {
   }
   
   console.log('');
-  console.log(chalk.blue('💡 Next steps:'));
+  console.log(chalk.blue('* Next steps:'));
   console.log('  theater-chat list               # See local configs');
   console.log('  theater-chat list --all         # See all configs');
   console.log('  theater-chat                    # Start chat with default config');
