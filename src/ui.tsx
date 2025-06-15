@@ -3,7 +3,7 @@ import MultiLineInput from './MultiLineInput.js';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { ChatConfig } from './types.js';
+import type { ChatConfig, Message, SetupStatus, ToolDisplayMode, InputMode, ChannelStream } from './types.js';
 import type { TheaterClient } from './theater.js';
 
 interface ChatAppProps {
@@ -11,17 +11,6 @@ interface ChatAppProps {
   actorId: string;
   config: ChatConfig;
   initialMessage?: string;
-}
-
-type SetupStatus = 'connecting' | 'opening_channel' | 'loading_actor' | 'ready' | 'error';
-type ToolDisplayMode = 'hidden' | 'minimal' | 'full';
-type InputMode = 'insert' | 'normal';
-
-interface Message {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp?: Date;
-  tools?: any[];
 }
 
 interface ChatHeaderProps {
@@ -37,7 +26,7 @@ interface MessageComponentProps {
 
 interface FormattedContentProps {
   content: string;
-  role: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
   toolDisplayMode: ToolDisplayMode;
   contentColor: string;
   message: Message;
@@ -53,7 +42,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
   const [inputContent, setInputContent] = useState<string>('');
   const [inputCursor, setInputCursor] = useState<number>(0);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [channel, setChannel] = useState<string | null>(null);
+  const [channel, setChannel] = useState<ChannelStream | null>(null);
   const [setupStatus, setSetupStatus] = useState<SetupStatus>('connecting');
   const [setupMessage, setSetupMessage] = useState<string>('Connecting to Theater...');
   const [toolDisplayMode, setToolDisplayMode] = useState<ToolDisplayMode>('minimal');
@@ -71,31 +60,31 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
     error: 'Failed to connect to Theater server'
   };
 
-  const addMessage = useCallback((role, content, status = 'complete') => {
+  const addMessage = useCallback((role: 'user' | 'assistant' | 'system' | 'tool', content: string, status: 'pending' | 'complete' = 'complete') => {
     setMessages(prev => [...prev, { role, content, status }]);
   }, []);
 
-  const updateMessageStatus = useCallback((messageIndex, status) => {
+  const updateMessageStatus = useCallback((messageIndex: number, status: 'pending' | 'complete') => {
     setMessages(prev => prev.map((msg, i) =>
       i === messageIndex ? { ...msg, status } : msg
     ));
   }, []);
 
-  const addPendingMessage = useCallback((role, content) => {
+  const addPendingMessage = useCallback((role: 'user' | 'assistant' | 'system' | 'tool', content: string) => {
     const messageIndex = messages.length;
     addMessage(role, content, 'pending');
     return messageIndex;
   }, [messages.length, addMessage]);
 
-  const addToolMessage = useCallback((toolName, toolArgs) => {
+  const addToolMessage = useCallback((toolName: string, toolArgs: string[]) => {
     setMessages(prev => {
       // Find the last pending assistant message
       const lastAssistantIndex = prev.map((msg, i) => ({ ...msg, index: i }))
         .reverse()
         .find(msg => msg.role === 'assistant' && msg.status === 'pending')?.index;
 
-      const toolMessage = {
-        role: 'tool',
+      const toolMessage: Message = {
+        role: 'tool' as const,
         content: toolName,
         toolName,
         toolArgs,
@@ -191,8 +180,8 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
 
                   // Extract text content (if any)
                   const textContent = completion.content
-                    .filter(item => item.type === 'text')
-                    .map(item => item.text)
+                    .filter((item: any) => item.type === 'text')
+                    .map((item: any) => item.text)
                     .join('');
 
                   // Add assistant message if there's text content
@@ -220,7 +209,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
                   // Fallback to Message content
                   let content = message.content;
                   if (Array.isArray(content)) {
-                    content = content.map(item => {
+                    content = content.map((item: any) => {
                       if (item.type === 'text') return item.text;
                       if (item.type === 'tool_result') return `Tool result: ${JSON.stringify(item.content)}`;
                       return JSON.stringify(item);
@@ -263,7 +252,8 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
             }
           } catch (parseError) {
             console.error('Failed to parse message:', parseError);
-            addMessage('system', `Error parsing message: ${parseError.message}`, 'complete');
+            const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+            addMessage('system', `Error parsing message: ${errorMessage}`, 'complete');
             setIsGenerating(false); // Clear loading on error
           }
         });
@@ -277,7 +267,8 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
 
       } catch (error) {
         setSetupStatus('error');
-        setSetupMessage(`Error: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setSetupMessage(`Error: ${errorMessage}`);
         console.error('Setup error:', error);
       }
     }
@@ -290,7 +281,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
   }, [theaterClient, actorId, initialMessage]);
 
   // Function to send messages
-  const sendMessage = useCallback(async (messageText) => {
+  const sendMessage = useCallback(async (messageText: string) => {
     if (!channel || !messageText.trim()) return;
 
     try {
@@ -309,13 +300,14 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
 
     } catch (error) {
       console.error('Error sending message:', error);
-      addMessage('system', `Error sending message: ${error.message}`, 'complete');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addMessage('system', `Error sending message: ${errorMessage}`, 'complete');
       setIsGenerating(false); // Clear on error
     }
   }, [channel, addPendingMessage, addMessage]);
 
   // Handle input submission - works with lifted content state
-  const handleSubmit = useCallback((content) => {
+  const handleSubmit = useCallback((content: string) => {
     const messageContent = content || inputContent;
     if (messageContent.trim()) {
       sendMessage(messageContent.trim());
@@ -338,7 +330,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
     // Toggle tool display mode with Ctrl+T
     if (key.ctrl && input === 't') {
       setToolDisplayMode(prev => {
-        const modes = ['hidden', 'minimal', 'full'];
+        const modes: ToolDisplayMode[] = ['hidden', 'minimal', 'full'];
         const currentIndex = modes.indexOf(prev);
         return modes[(currentIndex + 1) % modes.length];
       });
@@ -350,10 +342,10 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
     }
 
     // NORMAL mode commands (only when in normal mode)
-    if (inputMode === 'normal') {
+    if (inputMode === 'command') {
       // Enter: Send message
       if (key.return) {
-        handleSubmit();
+        handleSubmit(inputContent);
         return;
       }
 
@@ -533,7 +525,7 @@ function FormattedContent({ content, role, toolDisplayMode, contentColor, messag
  * Render the app and handle cleanup
  */
 export async function renderApp(theaterClient: TheaterClient, actorId: string, config: ChatConfig, initialMessage?: string): Promise<void> {
-  let app = null;
+  let app: any = null;
 
   const cleanup = async () => {
     try {
@@ -560,7 +552,7 @@ export async function renderApp(theaterClient: TheaterClient, actorId: string, c
         theaterClient={theaterClient}
         actorId={actorId}
         config={config}
-        initialMessage={initialMessage}
+        initialMessage={initialMessage || undefined}
       />
     );
 

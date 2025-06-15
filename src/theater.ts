@@ -246,8 +246,8 @@ export class TheaterClient {
 
   constructor(serverAddress: string) {
     const [host, port] = serverAddress.split(':');
-    this.host = host;
-    this.port = parseInt(port);
+    this.host = host || 'localhost';
+    this.port = parseInt(port) || 9000;
   }
 
   /**

@@ -1,19 +1,9 @@
 import { useCallback } from 'react';
+import { useCallback } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
-
-interface MultiLineInputProps {
-  placeholder?: string;
-  onSubmit: (content: string) => void;
-  maxHeight?: number;
-  mode?: 'insert' | 'command';
-  onModeChange?: (mode: 'insert' | 'command') => void;
-  content?: string;
-  cursorPosition?: number;
-  onContentChange?: (content: string) => void;
-  onCursorChange?: (position: number) => void;
-}
 import fs from 'fs';
 import path from 'path';
+import type { MultiLineInputProps } from './types.js';
 
 // Set up input-specific logging
 const inputLogFile = path.join(process.cwd(), 'input-box.log');
@@ -76,8 +66,8 @@ export default function MultiLineInput({
     const newContent = before + text + after;
     const newCursor = cursorPosition + text.length;
 
-    onContentChange(newContent);
-    onCursorChange(newCursor);
+    onContentChange?.(newContent);
+    onCursorChange?.(newCursor);
   }, [content, cursorPosition, onContentChange, onCursorChange]);
 
   const deleteChar = useCallback((direction: 'forward' | 'backward' = 'backward') => {
@@ -89,8 +79,8 @@ export default function MultiLineInput({
       const newContent = before + after;
       const newCursor = cursorPosition - 1;
 
-      onContentChange(newContent);
-      onCursorChange(newCursor);
+      onContentChange?.(newContent);
+      onCursorChange?.(newCursor);
     } else if (direction === 'forward' && cursorPosition < content.length) {
       const before = content.slice(0, cursorPosition);
       const after = content.slice(cursorPosition + 1);
@@ -104,7 +94,7 @@ export default function MultiLineInput({
   const moveCursor = useCallback((newPos: number) => {
     const clampedPos = Math.max(0, Math.min(content.length, newPos));
     logInput(`Move cursor: ${cursorPosition} -> ${clampedPos}`);
-    onCursorChange(clampedPos);
+    onCursorChange?.(clampedPos);
   }, [content.length, cursorPosition, onCursorChange]);
 
   const handleSubmit = useCallback((): void => {
@@ -119,7 +109,7 @@ export default function MultiLineInput({
     logInput(`Key: input="${input}", key=${JSON.stringify(key)}`);
 
     if (key.escape) {
-      onModeChange('normal');
+      onModeChange?.('command');
       return;
     }
 
@@ -134,16 +124,8 @@ export default function MultiLineInput({
       moveCursor(cursorPosition + 1);
       return;
     }
-    if (key.home) {
-      const lineStart = content.lastIndexOf('\n', cursorPosition - 1) + 1;
-      moveCursor(lineStart);
-      return;
-    }
-    if (key.end) {
-      const lineEnd = content.indexOf('\n', cursorPosition);
-      moveCursor(lineEnd === -1 ? content.length : lineEnd);
-      return;
-    }
+    // Home key not available in Ink - could be added with custom key handling
+    // End key not available in Ink - could be added with custom key handling
 
     // Up/down arrow (simplified)
     if (key.upArrow) {

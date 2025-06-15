@@ -55,14 +55,40 @@ export interface ActorState {
 }
 
 // UI types
+export interface Message {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp?: Date;
+  tools?: any[];
+  status?: 'pending' | 'complete';
+  toolName?: string;
+  toolArgs?: string[];
+}
+
+export type SetupStatus = 'connecting' | 'opening_channel' | 'loading_actor' | 'ready' | 'error';
+export type ToolDisplayMode = 'hidden' | 'minimal' | 'full';
+export type InputMode = 'insert' | 'command';
+
+export interface MultiLineInputProps {
+  placeholder?: string;
+  onSubmit: (content: string) => void;
+  maxHeight?: number;
+  mode?: 'insert' | 'command';
+  onModeChange?: (mode: 'insert' | 'command') => void;
+  content?: string;
+  cursorPosition?: number;
+  onContentChange?: (content: string) => void;
+  onCursorChange?: (position: number) => void;
+}
+
 export interface AppState {
-  messages: TheaterMessage[];
+  messages: Message[];
   isConnected: boolean;
   isLoading: boolean;
   error?: string;
   actorId?: string;
   config: ChatConfig;
-  toolDisplayMode: 'hidden' | 'minimal' | 'full';
+  toolDisplayMode: ToolDisplayMode;
   showHelp: boolean;
 }
 
@@ -107,6 +133,14 @@ export interface ChannelMessage extends WSMessage {
 export interface RequestMessage extends WSMessage {
   actor_id: string;
   data: any;
+}
+
+// Theater types
+export interface ChannelStream {
+  channelId: string;
+  onMessage(handler: (message: any) => void): () => void;
+  sendMessage(message: string): Promise<void>;
+  close(): void;
 }
 
 // Re-export TheaterClient from theater module
