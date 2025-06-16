@@ -359,9 +359,12 @@ export class TheaterClient {
         type: 'AddMessage',
         message: {
           role: 'user',
-          content: [{ text: message }]  // genai_types::Message format
+          content: [{ type: 'text', text: message }]  // Correct genai_types::MessageContent format
         }
       };
+
+      log(`Sending message data: ${JSON.stringify(messageData)}`);
+      console.log(`DEBUG: Sending message data: ${JSON.stringify(messageData)}`);
 
       await connection.send('RequestActorMessage', {
         id: domainActorId,
