@@ -8,7 +8,8 @@ import os from 'os';
 import { TheaterClient } from './theater.js';
 import { renderApp } from './ui.js';
 import type { 
-  ChatConfig, 
+  ChatConfig,
+  TheaterChatConfig,
   CLIOptions, 
   ConfigListOptions, 
   ConfigInitOptions 
@@ -211,7 +212,8 @@ function resolveConfigPath(configInput: string): string {
 }
 
 async function main(options: CLIOptions): Promise<void> {
-  let actorId: string | null = null;
+  let domainActorId: string | null = null;
+  let chatActorId: string | null = null;
   let theaterClient: TheaterClient | null = null;
 
   // Signal handlers - let the UI cleanup handle actor stopping
@@ -226,7 +228,7 @@ async function main(options: CLIOptions): Promise<void> {
   });
 
   try {
-    log('Starting theater chat');
+    log('Starting theater chat with domain actor pattern');
 
     // Resolve and load configuration
     const configPath = resolveConfigPath(options.config || 'default');
@@ -240,13 +242,15 @@ async function main(options: CLIOptions): Promise<void> {
     log(`Creating Theater client for: ${options.server || '127.0.0.1:9000'}`);
     theaterClient = new TheaterClient(options.server || '127.0.0.1:9000');
 
-    // Start the chat actor
-    actorId = await theaterClient.startChatActor(config);
-    log(`Chat actor started: ${actorId}`);
+    // Start the chat session with domain actor pattern
+    const session = await theaterClient.startChatSession(config);
+    domainActorId = session.domainActorId;
+    chatActorId = session.chatActorId;
+    log(`Chat session started - Domain: ${domainActorId}, Chat: ${chatActorId}`);
 
     // Render the interactive UI
     log('Starting interactive UI...');
-    await renderApp(theaterClient, actorId, config, options.message);
+    await renderApp(theaterClient, domainActorId, chatActorId, config, options.message);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -261,7 +265,7 @@ async function main(options: CLIOptions): Promise<void> {
   }
 }
 
-function loadConfig(configPath: string): ChatConfig {
+function loadConfig(configPath: string): TheaterChatConfig {
   try {
     // Resolve the config path
     const resolvedPath = path.resolve(configPath);
@@ -273,7 +277,7 @@ function loadConfig(configPath: string): ChatConfig {
 
     // Read and parse the JSON
     const configContent = fs.readFileSync(resolvedPath, 'utf8');
-    const config = JSON.parse(configContent) as ChatConfig;
+    const config = JSON.parse(configContent) as TheaterChatConfig;
 
     // Basic validation
     validateConfig(config);
@@ -287,28 +291,23 @@ function loadConfig(configPath: string): ChatConfig {
   }
 }
 
-function validateConfig(config: ChatConfig): void {
-  // Check required fields
-  if (!config.model_config) {
-    throw new Error('Config missing required field: model_config');
+function validateConfig(config: TheaterChatConfig): void {
+  // Check required fields for new domain actor format
+  if (!config.actor) {
+    throw new Error('Config missing required field: actor');
   }
   
-  if (!config.model_config.model) {
-    throw new Error('Config missing required field: model_config.model');
+  if (!config.actor.manifest_path) {
+    throw new Error('Config missing required field: actor.manifest_path');
   }
   
-  if (!config.model_config.provider) {
-    throw new Error('Config missing required field: model_config.provider');
+  // Check that manifest file exists
+  if (!fs.existsSync(config.actor.manifest_path)) {
+    throw new Error(`Actor manifest not found: ${config.actor.manifest_path}`);
   }
 
-  // Validate optional fields have reasonable defaults
-  if (config.temperature !== undefined && (config.temperature < 0 || config.temperature > 2)) {
-    throw new Error('Config temperature must be between 0 and 2');
-  }
-
-  if (config.max_tokens !== undefined && config.max_tokens < 1) {
-    throw new Error('Config max_tokens must be positive');
-  }
+  // config.config is domain-specific, so we don't validate its structure here
+  // The domain actor will validate its own configuration
 
   log('Config validation passed');
 }

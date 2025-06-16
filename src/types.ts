@@ -29,6 +29,14 @@ export interface ChatConfig {
   mcp_servers?: MCPServer[];
 }
 
+// New configuration format for domain actor pattern
+export interface TheaterChatConfig {
+  actor: {
+    manifest_path: string;
+  };
+  config: any; // Domain-specific configuration
+}
+
 // Theater types
 export interface TheaterMessage {
   id: string;
@@ -86,8 +94,9 @@ export interface AppState {
   isConnected: boolean;
   isLoading: boolean;
   error?: string;
-  actorId?: string;
-  config: ChatConfig;
+  domainActorId?: string;
+  chatActorId?: string;
+  config: TheaterChatConfig;
   toolDisplayMode: ToolDisplayMode;
   showHelp: boolean;
 }

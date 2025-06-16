@@ -20,17 +20,25 @@ Theater-chat directly spawns and communicates with chat-state actors using confi
 ## Proposed Architecture
 
 ```
-theater-chat → domain actor → chat-state actor
-             ↑              ↑             ↓
-             │              └── spawns    └── messages via channel
-             └── GetChatStateActorId
+User Input → theater-chat → domain actor → chat-state actor
+                    ↓            ↓             ↑
+                    │       AddMessage     spawns
+                    │      (+ context      │
+                    │       injection)     │
+                    │                      │
+User Display ← channel subscription ← chat-state actor
 ```
 
-All interactions go through domain actors that:
-1. Handle domain-specific logic and context
+**Key Flow**:
+1. **Message Injection**: User messages go through domain actors for context enhancement
+2. **Response Streaming**: Chat responses come directly via channel subscription
+3. **Domain Logic**: Domain actors inject context (git status, files, etc.) before LLM calls
+
+Domain actors:
+1. Handle domain-specific logic and context injection
 2. Spawn appropriate chat-state actors
-3. Return chat-state actor IDs for message streaming
-4. Can send messages to chat-state actors independently
+3. Return chat-state actor IDs for response streaming
+4. Intercept and enhance user messages with contextual information
 
 ## Motivation
 
@@ -96,10 +104,13 @@ export interface TheaterChatConfig {
 Add new methods:
 - `startDomainActor(manifestPath: string, initialState: any): Promise<string>`
 - `getChatStateActorId(domainActorId: string): Promise<string>`
+- `sendMessage(domainActorId: string, message: string): Promise<void>` 
 - `startChatSession(config: TheaterChatConfig): Promise<{ domainActorId: string, chatActorId: string }>`
 
 Remove legacy methods:
 - `startChatActor()` (old direct method)
+
+**Key Change**: User messages now go through `sendMessage(domainActorId)` for context injection, while responses come via channel subscription to `chatActorId`.
 
 #### 1.3 Update Main Application Flow
 **File:** `src/index.ts`
@@ -112,8 +123,9 @@ Remove legacy methods:
 **File:** `src/ui.tsx`
 
 - Accept both `domainActorId` and `chatActorId` in props
-- Always subscribe to `chatActorId` for messages
-- Keep `domainActorId` available for future domain-specific features
+- Subscribe to `chatActorId` for receiving chat responses
+- Send user messages via `sendMessage(domainActorId)` for context injection
+- Update `onSendMessage` handler to use domain actor instead of direct chat-state communication
 
 ### Phase 2: Testing & Documentation (1 day)
 
@@ -172,7 +184,7 @@ All domain actors must implement:
 }
 ```
 
-### `AddMessage` Request (Optional)
+### `AddMessage` Request (Critical)
 ```json
 {
   "type": "AddMessage",
@@ -186,6 +198,8 @@ All domain actors must implement:
   "type": "Success"
 }
 ```
+
+**Purpose**: This is the core domain logic method. Domain actors receive user messages, inject contextual information (git status, file contents, project context), and forward enhanced messages to chat-state actors. This enables powerful context-aware AI interactions.
 
 ## Example Configurations
 
@@ -226,6 +240,8 @@ All domain actors must implement:
   }
 }
 ```
+
+**Context Injection Example**: When user types "Help me write a commit message", the git-assistant-actor would enhance this to: "Help me write a commit message. Current git status: [modified files, staged changes, recent commits]"
 
 ## Migration Guide for Users
 

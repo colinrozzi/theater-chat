@@ -3,13 +3,14 @@ import MultiLineInput from './MultiLineInput.js';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { ChatConfig, Message, SetupStatus, ToolDisplayMode, InputMode, ChannelStream } from './types.js';
+import type { ChatConfig, TheaterChatConfig, Message, SetupStatus, ToolDisplayMode, InputMode, ChannelStream } from './types.js';
 import type { TheaterClient } from './theater.js';
 
 interface ChatAppProps {
   theaterClient: TheaterClient;
-  actorId: string;
-  config: ChatConfig;
+  domainActorId: string;
+  chatActorId: string;
+  config: TheaterChatConfig;
   initialMessage?: string | undefined;
 }
 
@@ -35,7 +36,7 @@ interface FormattedContentProps {
 /**
  * Main application component
  */
-function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProps) {
+function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMessage }: ChatAppProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   // Mode state for vim-style input
   const [inputMode, setInputMode] = useState<InputMode>('insert');
@@ -118,7 +119,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
         setSetupStatus('opening_channel');
         setSetupMessage(setupSteps.opening_channel);
 
-        const channelStream = await theaterClient.openChannelStream(actorId);
+        const channelStream = await theaterClient.openChannelStream(chatActorId);
 
         setSetupStatus('loading_actor');
         setSetupMessage(setupSteps.loading_actor);
@@ -293,9 +294,10 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
       // Add pending assistant message
       addPendingMessage('assistant', '');
 
-      // Send message to the channel
-      await channel.sendMessage(messageText.trim());
+      // Send message through domain actor for context injection
+      await theaterClient.sendMessage(domainActorId, messageText.trim());
 
+      // Response will come through channel subscription to chat-state actor
       // Input clearing now handled by MultiLineInput
 
     } catch (error) {
@@ -304,7 +306,7 @@ function ChatApp({ theaterClient, actorId, config, initialMessage }: ChatAppProp
       addMessage('system', `Error sending message: ${errorMessage}`, 'complete');
       setIsGenerating(false); // Clear on error
     }
-  }, [channel, addPendingMessage, addMessage]);
+  }, [channel, theaterClient, domainActorId, addPendingMessage, addMessage]);
 
   // Handle input submission - works with lifted content state
   const handleSubmit = useCallback((content: string) => {
@@ -524,13 +526,14 @@ function FormattedContent({ content, role, toolDisplayMode, contentColor, messag
 /**
  * Render the app and handle cleanup
  */
-export async function renderApp(theaterClient: TheaterClient, actorId: string, config: ChatConfig, initialMessage?: string): Promise<void> {
+export async function renderApp(theaterClient: TheaterClient, domainActorId: string, chatActorId: string, config: TheaterChatConfig, initialMessage?: string): Promise<void> {
   let app: any = null;
 
   const cleanup = async () => {
     try {
-      if (actorId && theaterClient) {
-        await theaterClient.stopActor(actorId);
+      // Stop domain actor (which should clean up chat actor)
+      if (domainActorId && theaterClient) {
+        await theaterClient.stopActor(domainActorId);
       }
     } catch (error) {
       // Ignore cleanup errors
@@ -550,7 +553,8 @@ export async function renderApp(theaterClient: TheaterClient, actorId: string, c
     app = render(
       <ChatApp
         theaterClient={theaterClient}
-        actorId={actorId}
+        domainActorId={domainActorId}
+        chatActorId={chatActorId}
         config={config}
         initialMessage={initialMessage || undefined}
       />

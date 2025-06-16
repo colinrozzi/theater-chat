@@ -3,7 +3,8 @@ import { EventEmitter } from 'node:events';
 import net from 'node:net';
 import fs from 'fs';
 import path from 'path';
-import type { ChatConfig, TheaterMessage, WSMessage } from './types.js';
+import { v4 as uuidv4 } from 'uuid';
+import type { ChatConfig, TheaterChatConfig, TheaterMessage, WSMessage } from './types.js';
 
 // Logging utility
 const logFile = path.join(process.cwd(), 'theater-client.log');
@@ -54,7 +55,14 @@ interface ActorStoppedResponse {
   Error?: any;
 }
 
-type TheaterResponse = ActorStartResponse | ChannelResponse | ActorListResponse | ActorStatusResponse | ActorStoppedResponse;
+interface RequestResponse {
+  RequestResponse?: {
+    data: number[];
+  };
+  Error?: any;
+}
+
+type TheaterResponse = ActorStartResponse | ChannelResponse | ActorListResponse | ActorStatusResponse | ActorStoppedResponse | RequestResponse;
 
 /**
  * A single connection to the Theater server
@@ -260,7 +268,144 @@ export class TheaterClient {
   }
 
   /**
-   * Start an actor and return its ID
+   * Start a domain actor and return its ID
+   */
+  async startDomainActor(manifestPath: string, initialState: any): Promise<string> {
+    log(`Starting domain actor with manifest: ${manifestPath}`);
+    const connection = await this.createConnection();
+    log('Connection created for startDomainActor');
+
+    try {
+      await connection.send('StartActor', {
+        manifest: manifestPath,
+        initial_state: Array.from(Buffer.from(JSON.stringify(initialState), 'utf8')),
+        parent: false,
+        subscribe: false
+      });
+
+      // Wait for response
+      while (true) {
+        const response = await connection.receive();
+
+        if ('ActorStarted' in response && response.ActorStarted) {
+          log(`Domain actor started: ${response.ActorStarted.id}`);
+          return response.ActorStarted.id;
+        } else if ('Error' in response && response.Error) {
+          throw new Error(`Failed to start domain actor: ${JSON.stringify(response.Error)}`);
+        }
+        // Ignore other responses
+      }
+    } finally {
+      connection.close();
+    }
+  }
+
+  /**
+   * Get the chat-state actor ID from a domain actor
+   */
+  async getChatStateActorId(domainActorId: string): Promise<string> {
+    log(`Getting chat-state actor ID from domain actor: ${domainActorId}`);
+    const connection = await this.createConnection();
+    log('Connection created for getChatStateActorId');
+
+    try {
+      await connection.send('RequestMessage', {
+        actor_id: domainActorId,
+        data: Array.from(Buffer.from(JSON.stringify({ type: 'GetChatStateActorId' }), 'utf8'))
+      });
+
+      // Wait for response
+      while (true) {
+        const response = await connection.receive();
+        log(`getChatStateActorId response: ${JSON.stringify(response)}`);
+
+        if ('RequestResponse' in response && response.RequestResponse) {
+          const responseData = Buffer.from(response.RequestResponse.data).toString('utf8');
+          const parsedResponse = JSON.parse(responseData);
+          
+          if (parsedResponse.type === 'ChatStateActorId' && parsedResponse.actor_id) {
+            log(`Got chat-state actor ID: ${parsedResponse.actor_id}`);
+            return parsedResponse.actor_id;
+          } else {
+            throw new Error(`Invalid response from domain actor: ${responseData}`);
+          }
+        } else if ('Error' in response && response.Error) {
+          throw new Error(`Failed to get chat-state actor ID: ${JSON.stringify(response.Error)}`);
+        }
+        // Ignore other responses
+      }
+    } finally {
+      connection.close();
+    }
+  }
+
+  /**
+   * Send a message through the domain actor for context injection
+   */
+  async sendMessage(domainActorId: string, message: string): Promise<void> {
+    log(`Sending message through domain actor: ${domainActorId}`);
+    const connection = await this.createConnection();
+    log('Connection created for sendMessage');
+
+    try {
+      const messageData = {
+        type: 'AddMessage',
+        message: {
+          role: 'user',
+          content: message,
+          timestamp: Date.now()
+        }
+      };
+
+      await connection.send('RequestMessage', {
+        actor_id: domainActorId,
+        data: Array.from(Buffer.from(JSON.stringify(messageData), 'utf8'))
+      });
+
+      // Wait for response
+      while (true) {
+        const response = await connection.receive();
+        log(`sendMessage response: ${JSON.stringify(response)}`);
+
+        if ('RequestResponse' in response && response.RequestResponse) {
+          const responseData = Buffer.from(response.RequestResponse.data).toString('utf8');
+          const parsedResponse = JSON.parse(responseData);
+          
+          if (parsedResponse.type === 'Success') {
+            log('Message sent successfully through domain actor');
+            return;
+          } else {
+            throw new Error(`Domain actor rejected message: ${responseData}`);
+          }
+        } else if ('Error' in response && response.Error) {
+          throw new Error(`Failed to send message through domain actor: ${JSON.stringify(response.Error)}`);
+        }
+        // Ignore other responses
+      }
+    } finally {
+      connection.close();
+    }
+  }
+
+  /**
+   * Start a complete chat session with domain actor pattern
+   */
+  async startChatSession(config: TheaterChatConfig): Promise<{ domainActorId: string, chatActorId: string }> {
+    log('Starting chat session with domain actor pattern');
+    
+    // Start domain actor
+    const domainActorId = await this.startDomainActor(config.actor.manifest_path, config.config);
+    
+    // Get chat-state actor ID
+    const chatActorId = await this.getChatStateActorId(domainActorId);
+    
+    log(`Chat session started - Domain: ${domainActorId}, Chat: ${chatActorId}`);
+    return { domainActorId, chatActorId };
+  }
+
+  /**
+   * Legacy method - Start an actor and return its ID
+   * @deprecated Use startChatSession instead
    */
   async startChatActor(config: ChatConfig): Promise<string> {
     log('Starting chat actor...');
