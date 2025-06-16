@@ -359,8 +359,7 @@ export class TheaterClient {
         type: 'AddMessage',
         message: {
           role: 'user',
-          content: message,
-          timestamp: Date.now()
+          content: [{ text: message }]  // genai_types::Message format
         }
       };
 
