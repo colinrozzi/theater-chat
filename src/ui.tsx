@@ -312,6 +312,8 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
       }, 1000);
       return () => clearTimeout(timer);
     }
+    // Return undefined when condition is not met
+    return undefined;
   }, [initialMessage, channel, setupStatus, sendMessage]);
 
   // Handle input submission - works with lifted content state
