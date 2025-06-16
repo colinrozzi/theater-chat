@@ -10,6 +10,7 @@
     "temperature": 1.0,
     "max_tokens": 8192,
     "system_prompt": "You are a helpful assistant being accessed through a domain actor. This tests the new theater-chat architecture.",
-    "title": "Domain Actor Test"
+    "title": "Domain Actor Test",
+    "mcp_servers": []
   }
 }
