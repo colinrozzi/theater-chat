@@ -15,7 +15,7 @@ interface ChatAppProps {
 }
 
 interface ChatHeaderProps {
-  config: ChatConfig;
+  config: TheaterChatConfig;
   setupStatus: SetupStatus;
   setupMessage: string;
 }
@@ -259,12 +259,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
           }
         });
 
-        // Send initial message if provided
-        if (initialMessage) {
-          setTimeout(() => {
-            sendMessage(initialMessage);
-          }, 1000);
-        }
+        // Initial message will be handled by a separate useEffect
 
       } catch (error) {
         setSetupStatus('error');
@@ -279,7 +274,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
     return () => {
       if (setupTimeout) clearTimeout(setupTimeout);
     };
-  }, [theaterClient, actorId, initialMessage]);
+  }, [theaterClient, chatActorId, domainActorId]);
 
   // Function to send messages
   const sendMessage = useCallback(async (messageText: string) => {
@@ -307,6 +302,17 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
       setIsGenerating(false); // Clear on error
     }
   }, [channel, theaterClient, domainActorId, addPendingMessage, addMessage]);
+
+  // Handle initial message
+  useEffect(() => {
+    if (initialMessage && channel && setupStatus === 'ready') {
+      // Send initial message after a brief delay
+      const timer = setTimeout(() => {
+        sendMessage(initialMessage);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [initialMessage, channel, setupStatus, sendMessage]);
 
   // Handle input submission - works with lifted content state
   const handleSubmit = useCallback((content: string) => {
@@ -427,14 +433,15 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
  * Chat header component
  */
 function ChatHeader({ config, setupStatus, setupMessage }: ChatHeaderProps) {
-  const title = config.title || 'Chat Session';
+  const title = config.config?.title || 'Chat Session';
+  const modelName = config.config?.model_config?.model || 'Unknown Model';
 
   // Don't show header if ready - keep it minimal
   if (setupStatus === 'ready') {
     return (
       <Box marginBottom={1}>
         <Text color="cyan">{title}</Text>
-        <Text color="gray"> ({config.model_config?.model || 'Unknown Model'})</Text>
+        <Text color="gray"> ({modelName})</Text>
       </Box>
     );
   }
@@ -444,7 +451,7 @@ function ChatHeader({ config, setupStatus, setupMessage }: ChatHeaderProps) {
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <Text color="cyan">{title}</Text>
-        <Text color="gray"> ({config.model_config?.model || 'Unknown Model'})</Text>
+        <Text color="gray"> ({modelName})</Text>
       </Box>
       <Box>
         <Spinner type="dots" />
