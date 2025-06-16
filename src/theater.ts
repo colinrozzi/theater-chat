@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'node:events';
 import net from 'node:net';
 import fs from 'fs';
@@ -322,7 +321,7 @@ export class TheaterClient {
         if ('RequestResponse' in response && response.RequestResponse) {
           const responseData = Buffer.from(response.RequestResponse.data).toString('utf8');
           const parsedResponse = JSON.parse(responseData);
-          
+
           if (parsedResponse.type === 'ChatStateActorId' && parsedResponse.actor_id) {
             log(`Got chat-state actor ID: ${parsedResponse.actor_id}`);
             return parsedResponse.actor_id;
@@ -370,7 +369,7 @@ export class TheaterClient {
         if ('RequestResponse' in response && response.RequestResponse) {
           const responseData = Buffer.from(response.RequestResponse.data).toString('utf8');
           const parsedResponse = JSON.parse(responseData);
-          
+
           if (parsedResponse.type === 'Success') {
             log('Message sent successfully through domain actor');
             return;
@@ -392,13 +391,13 @@ export class TheaterClient {
    */
   async startChatSession(config: TheaterChatConfig): Promise<{ domainActorId: string, chatActorId: string }> {
     log('Starting chat session with domain actor pattern');
-    
+
     // Start domain actor
     const domainActorId = await this.startDomainActor(config.actor.manifest_path, config.config);
-    
+
     // Get chat-state actor ID
     const chatActorId = await this.getChatStateActorId(domainActorId);
-    
+
     log(`Chat session started - Domain: ${domainActorId}, Chat: ${chatActorId}`);
     return { domainActorId, chatActorId };
   }
