@@ -7,12 +7,12 @@ import path from 'path';
 import os from 'os';
 import { TheaterClient } from './theater.js';
 import { renderApp } from './ui.js';
-import type { 
+import type {
   ChatConfig,
   TheaterChatConfig,
-  CLIOptions, 
-  ConfigListOptions, 
-  ConfigInitOptions 
+  CLIOptions,
+  ConfigListOptions,
+  ConfigInitOptions
 } from './types.js';
 
 // Set up logging
@@ -64,7 +64,7 @@ function getConfigDir(): string {
 function createDefaultConfigs(configDir: string): void {
   // Create the config directory
   fs.mkdirSync(configDir, { recursive: true });
-  
+
   // Default config - Claude Sonnet 4
   const defaultConfig: ChatConfig = {
     model_config: {
@@ -77,7 +77,7 @@ function createDefaultConfigs(configDir: string): void {
     title: "Theater Chat",
     mcp_servers: []
   };
-  
+
   // Sonnet base config
   const sonnetConfig: ChatConfig = {
     model_config: {
@@ -90,11 +90,11 @@ function createDefaultConfigs(configDir: string): void {
     title: "Sonnet Assistant",
     mcp_servers: []
   };
-  
+
   // Create sonnet directory and specialized configs
   const sonnetDir = path.join(configDir, 'sonnet');
   fs.mkdirSync(sonnetDir, { recursive: true });
-  
+
   const sonnetGitConfig: ChatConfig = {
     ...sonnetConfig,
     system_prompt: "You are a helpful programming assistant with git access. You can help with version control, reviewing changes, and managing repositories.",
@@ -109,7 +109,7 @@ function createDefaultConfigs(configDir: string): void {
       }
     ]
   };
-  
+
   const sonnetFsConfig: ChatConfig = {
     ...sonnetConfig,
     system_prompt: "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
@@ -125,11 +125,11 @@ function createDefaultConfigs(configDir: string): void {
       }
     ]
   };
-  
+
   // Gemini configs
   const geminiDir = path.join(configDir, 'gemini');
   fs.mkdirSync(geminiDir, { recursive: true });
-  
+
   const geminiConfig: ChatConfig = {
     model_config: {
       model: "gemini-1.5-pro",
@@ -141,7 +141,7 @@ function createDefaultConfigs(configDir: string): void {
     title: "Gemini Assistant",
     mcp_servers: []
   };
-  
+
   // Write all configs
   fs.writeFileSync(path.join(configDir, 'default.json'), JSON.stringify(defaultConfig, null, 2));
   fs.writeFileSync(path.join(configDir, 'sonnet.json'), JSON.stringify(sonnetConfig, null, 2));
@@ -163,7 +163,7 @@ function createDefaultConfigs(configDir: string): void {
       }
     ]
   }, null, 2));
-  
+
   log(`Created default configurations in ${configDir}`);
   console.log(chalk.green(`* Created configuration directory at ${configDir}`));
   console.log(chalk.blue('Available configs:'));
@@ -189,24 +189,24 @@ function resolveConfigPath(configInput: string): string {
   if (configInput.includes('.json') || configInput.startsWith('./') || configInput.startsWith('../') || configInput.startsWith('/')) {
     return configInput;
   }
-  
+
   // Check local .theater-chat directory first
   const localPath = path.join('.theater-chat', `${configInput}.json`);
   if (fs.existsSync(localPath)) {
     log(`Using local config: ${localPath}`);
     return localPath;
   }
-  
+
   // Ensure global config directory exists
   const configDir = ensureConfigDir();
-  
+
   // Check global config directory
   const globalPath = path.join(configDir, `${configInput}.json`);
   if (fs.existsSync(globalPath)) {
     log(`Using global config: ${globalPath}`);
     return globalPath;
   }
-  
+
   // Fall back to treating as filename and let it fail naturally
   return `${configInput}.json`;
 }
@@ -255,7 +255,7 @@ async function main(options: CLIOptions): Promise<void> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+
     console.error(chalk.red(`Error: ${errorMessage}`));
     log(`ERROR: ${errorMessage}`, 'ERROR');
     if (errorStack) {
@@ -269,7 +269,7 @@ function loadConfig(configPath: string): TheaterChatConfig {
   try {
     // Resolve the config path
     const resolvedPath = path.resolve(configPath);
-    
+
     // Check if file exists
     if (!fs.existsSync(resolvedPath)) {
       throw new Error(`Config file not found: ${resolvedPath}`);
@@ -296,11 +296,11 @@ function validateConfig(config: TheaterChatConfig): void {
   if (!config.actor) {
     throw new Error('Config missing required field: actor');
   }
-  
+
   if (!config.actor.manifest_path) {
     throw new Error('Config missing required field: actor.manifest_path');
   }
-  
+
   // Check that manifest file exists
   if (!fs.existsSync(config.actor.manifest_path)) {
     throw new Error(`Actor manifest not found: ${config.actor.manifest_path}`);
@@ -317,14 +317,14 @@ function listConfigs(options: ConfigListOptions): void {
   // Default to showing only local, unless --global or --all is specified
   const showGlobal = options.global || options.all;
   const showLocal = !options.global; // Show local unless --global is specified
-  
+
   console.log(chalk.blue('* Available Configurations'));
   console.log('');
-  
+
   if (showLocal) {
     console.log(chalk.yellow('* Local Configurations'));
     const localConfigDir = '.theater-chat';
-    
+
     if (!fs.existsSync(localConfigDir)) {
       console.log(chalk.gray('  No local config directory found'));
       console.log(chalk.gray(`  Run 'theater-chat init' to create`));
@@ -333,11 +333,11 @@ function listConfigs(options: ConfigListOptions): void {
     }
     console.log('');
   }
-  
+
   if (showGlobal) {
     console.log(chalk.yellow('* Global Configurations'));
     const configDir = getConfigDir();
-    
+
     if (!fs.existsSync(configDir)) {
       console.log(chalk.gray('  No global config directory found'));
       console.log(chalk.gray(`  Run 'theater-chat init --global' to create`));
@@ -346,7 +346,7 @@ function listConfigs(options: ConfigListOptions): void {
     }
     console.log('');
   }
-  
+
   if (showLocal) {
     console.log(chalk.blue('* Usage:'));
     console.log('  theater-chat                    # Uses default config');
@@ -362,7 +362,7 @@ function listConfigsInDirectory(dir: string, indent: string = '', prefix: string
     const items = fs.readdirSync(dir, { withFileTypes: true });
     const configs: string[] = [];
     const subdirs: string[] = [];
-    
+
     for (const item of items) {
       if (item.isFile() && item.name.endsWith('.json')) {
         const configName = item.name.replace('.json', '');
@@ -371,7 +371,7 @@ function listConfigsInDirectory(dir: string, indent: string = '', prefix: string
         subdirs.push(item.name);
       }
     }
-    
+
     // Sort and display configs
     configs.sort().forEach(config => {
       const configPath = path.join(dir, `${config}.json`);
@@ -385,19 +385,19 @@ function listConfigsInDirectory(dir: string, indent: string = '', prefix: string
         console.log(`${indent}${chalk.green(fullConfigName)} - ${chalk.red('Invalid JSON')}`);
       }
     });
-    
+
     // Recursively list subdirectories
     subdirs.sort().forEach(subdir => {
       const subdirPath = path.join(dir, subdir);
       const subdirItems = fs.readdirSync(subdirPath, { withFileTypes: true });
       const hasConfigs = subdirItems.some(item => item.isFile() && item.name.endsWith('.json'));
-      
+
       if (hasConfigs) {
         const newPrefix = prefix ? `${prefix}/${subdir}` : subdir;
         listConfigsInDirectory(subdirPath, indent, newPrefix);
       }
     });
-    
+
     if (configs.length === 0 && subdirs.length === 0) {
       console.log(`${indent}${chalk.gray('No configurations found')}`);
     }
@@ -411,10 +411,10 @@ function initConfigs(options: ConfigInitOptions): void {
   // Default to local init unless --global is specified
   const initGlobal = options.global;
   const initLocal = !options.global;
-  
+
   console.log(chalk.blue('* Initializing Configuration Directory'));
   console.log('');
-  
+
   if (initGlobal) {
     const configDir = getConfigDir();
     if (fs.existsSync(configDir)) {
@@ -423,14 +423,14 @@ function initConfigs(options: ConfigInitOptions): void {
       createDefaultConfigs(configDir);
     }
   }
-  
+
   if (initLocal) {
     const localConfigDir = '.theater-chat';
     if (fs.existsSync(localConfigDir)) {
       console.log(chalk.yellow(`* Local config directory already exists: ${path.resolve(localConfigDir)}`));
     } else {
       fs.mkdirSync(localConfigDir, { recursive: true });
-      
+
       // Create a simple example local config
       const exampleConfig: ChatConfig = {
         model_config: {
@@ -452,12 +452,12 @@ function initConfigs(options: ConfigInitOptions): void {
           }
         ]
       };
-      
+
       fs.writeFileSync(
-        path.join(localConfigDir, 'default.json'), 
+        path.join(localConfigDir, 'default.json'),
         JSON.stringify(exampleConfig, null, 2)
       );
-      
+
       console.log(chalk.green(`* Created local config directory: ${path.resolve(localConfigDir)}`));
       console.log(chalk.blue('  Created example config:'));
       console.log(`    default - ${exampleConfig.title}`);
@@ -465,7 +465,7 @@ function initConfigs(options: ConfigInitOptions): void {
       console.log(chalk.gray('  Tip: Add .theater-chat/ to your .gitignore to keep configs private'));
     }
   }
-  
+
   console.log('');
   console.log(chalk.blue('* Next steps:'));
   console.log('  theater-chat list               # See local configs');

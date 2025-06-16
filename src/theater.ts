@@ -61,7 +61,15 @@ interface RequestResponse {
   Error?: any;
 }
 
-type TheaterResponse = ActorStartResponse | ChannelResponse | ActorListResponse | ActorStatusResponse | ActorStoppedResponse | RequestResponse;
+interface RequestedMessage {
+  RequestedMessage?: {
+    id: string;
+    message: number[];
+  };
+  Error?: any;
+}
+
+type TheaterResponse = ActorStartResponse | ChannelResponse | ActorListResponse | ActorStatusResponse | ActorStoppedResponse | RequestResponse | RequestedMessage;
 
 /**
  * A single connection to the Theater server
@@ -308,8 +316,8 @@ export class TheaterClient {
     log('Connection created for getChatStateActorId');
 
     try {
-      await connection.send('RequestMessage', {
-        actor_id: domainActorId,
+      await connection.send('RequestActorMessage', {
+        id: domainActorId,
         data: Array.from(Buffer.from(JSON.stringify({ type: 'GetChatStateActorId' }), 'utf8'))
       });
 
@@ -318,8 +326,8 @@ export class TheaterClient {
         const response = await connection.receive();
         log(`getChatStateActorId response: ${JSON.stringify(response)}`);
 
-        if ('RequestResponse' in response && response.RequestResponse) {
-          const responseData = Buffer.from(response.RequestResponse.data).toString('utf8');
+        if ('RequestedMessage' in response && response.RequestedMessage) {
+          const responseData = Buffer.from(response.RequestedMessage.message).toString('utf8');
           const parsedResponse = JSON.parse(responseData);
 
           if (parsedResponse.type === 'ChatStateActorId' && parsedResponse.actor_id) {
@@ -356,8 +364,8 @@ export class TheaterClient {
         }
       };
 
-      await connection.send('RequestMessage', {
-        actor_id: domainActorId,
+      await connection.send('RequestActorMessage', {
+        id: domainActorId,
         data: Array.from(Buffer.from(JSON.stringify(messageData), 'utf8'))
       });
 
@@ -366,8 +374,8 @@ export class TheaterClient {
         const response = await connection.receive();
         log(`sendMessage response: ${JSON.stringify(response)}`);
 
-        if ('RequestResponse' in response && response.RequestResponse) {
-          const responseData = Buffer.from(response.RequestResponse.data).toString('utf8');
+        if ('RequestedMessage' in response && response.RequestedMessage) {
+          const responseData = Buffer.from(response.RequestedMessage.message).toString('utf8');
           const parsedResponse = JSON.parse(responseData);
 
           if (parsedResponse.type === 'Success') {
