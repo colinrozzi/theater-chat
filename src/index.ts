@@ -15,24 +15,69 @@ import type {
   ConfigInitOptions
 } from './types.js';
 
-// Set up logging
-const logFile = path.join(process.cwd(), 'theater-chat.log');
-function log(message: string, level: string = 'INFO'): void {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${level}: ${message}\n`;
-  fs.appendFileSync(logFile, logMessage);
+// Improved logging system
+function getLogDirectory(): string {
+  const platform = os.platform();
+  
+  if (platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    return path.join(appData, 'theater-chat', 'logs');
+  } else {
+    const xdgDataHome = process.env.XDG_DATA_HOME;
+    if (xdgDataHome) {
+      return path.join(xdgDataHome, 'theater-chat', 'logs');
+    }
+    return path.join(os.homedir(), '.local', 'share', 'theater-chat', 'logs');
+  }
 }
 
-// Clear log file on start
-fs.writeFileSync(logFile, `=== theater-chat started at ${new Date().toISOString()} ===\n`);
-log('Application started');
+let loggingEnabled = false;
+let verboseMode = false;
+let logFile: string;
+
+function initializeLogging(verbose: boolean = false, enableLogging: boolean = false): void {
+  verboseMode = verbose;
+  loggingEnabled = enableLogging || verbose;
+  
+  if (loggingEnabled) {
+    const logDirectory = getLogDirectory();
+    logFile = path.join(logDirectory, 'theater-chat.log');
+    
+    fs.mkdirSync(logDirectory, { recursive: true });
+    
+    const sessionStart = `=== theater-chat session started at ${new Date().toISOString()} ===\n`;
+    fs.writeFileSync(logFile, sessionStart);
+  }
+}
+
+function log(message: string, level: string = 'INFO'): void {
+  if (!loggingEnabled) return;
+  
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${level}: ${message}\n`;
+  
+  if (logFile) {
+    try {
+      fs.appendFileSync(logFile, logMessage);
+    } catch (error) {
+      // Silently fail if we can't write to log
+    }
+  }
+  
+  if (verboseMode) {
+    const colorizedLevel = level === 'ERROR' ? chalk.red(`[${level}]`) : 
+                          level === 'WARN' ? chalk.yellow(`[${level}]`) : 
+                          chalk.blue(`[${level}]`);
+    console.error(`${colorizedLevel} ${message}`);
+  }
+}
 
 program
   .name('theater-chat')
   .description('Configurable inline chat interface for Theater actors')
   .option('-c, --config <path>', 'Path to chat configuration JSON file', 'default')
   .option('-s, --server <address>', 'Theater server address', '127.0.0.1:9000')
-  .option('-v, --verbose', 'Enable verbose logging')
+  .option('-v, --verbose', 'Enable verbose logging to console and file')\n  .option('--log', 'Enable file logging (quiet mode)')
   .option('-m, --message <text>', 'Send an initial message to start the conversation')
   .action(main); // Default action when no subcommand is provided
 
@@ -258,7 +303,9 @@ function resolveConfigPath(configInput: string): string {
   return `${configInput}.json`;
 }
 
-async function main(options: CLIOptions): Promise<void> {
+async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
+  // Initialize logging based on options
+  initializeLogging(options.verbose, options.log);
   let domainActorId: string | null = null;
   let chatActorId: string | null = null;
   let theaterClient: TheaterClient | null = null;
@@ -275,7 +322,7 @@ async function main(options: CLIOptions): Promise<void> {
   });
 
   try {
-    log('Starting theater chat with domain actor pattern');
+    log('Starting theater chat session');
 
     // Resolve and load configuration
     const configPath = resolveConfigPath(options.config || 'default');

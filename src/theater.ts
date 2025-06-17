@@ -6,14 +6,13 @@ import { v4 as uuidv4 } from 'uuid';
 import type { ChatConfig, TheaterChatConfig, TheaterMessage, WSMessage } from './types.js';
 
 // Logging utility
-const logFile = path.join(process.cwd(), 'theater-client.log');
+// Minimal logging - only if verbose mode is enabled
 function log(message: string, level: string = 'INFO'): void {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${level}: ${message}\n`;
-  // Don't console.log when UI is running - interferes with Ink
-  fs.appendFileSync(logFile, logMessage);
+  // Only log if we're in development or verbose mode
+  if (process.env.NODE_ENV === 'development' || process.env.THEATER_VERBOSE) {
+    console.error(`[Theater Client ${level}] ${message}`);
+  }
 }
-fs.writeFileSync(logFile, `=== Theater Client started at ${new Date().toISOString()} ===\n`);
 
 interface FrameMessage {
   Complete?: number[];

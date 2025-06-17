@@ -116,6 +116,7 @@ export interface CLIOptions {
   config: string;
   server: string;
   verbose: boolean;
+  log?: boolean;
   message?: string;
 }
 

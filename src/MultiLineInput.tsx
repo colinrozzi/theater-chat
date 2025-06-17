@@ -5,23 +5,12 @@ import path from 'path';
 import type { MultiLineInputProps } from './types.js';
 
 // Set up input-specific logging
-const inputLogFile = path.join(process.cwd(), 'input-box.log');
-
+// Minimal logging for input component
 function logInput(message: string, level: string = 'INFO'): void {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${level}: ${message}\n`;
-  try {
-    fs.appendFileSync(inputLogFile, logMessage);
-  } catch (error) {
-    // Fail silently for logging errors
+  // Only log if we're in development mode
+  if (process.env.NODE_ENV === 'development') {
+    console.error(`[MultiLineInput ${level}] ${message}`);
   }
-}
-
-// Initialize log file
-try {
-  fs.writeFileSync(inputLogFile, `=== MultiLineInput logging started at ${new Date().toISOString()} ===\n`);
-} catch (error) {
-  // Fail silently
 }
 
 /**
