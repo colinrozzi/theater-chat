@@ -77,7 +77,8 @@ program
   .description('Configurable inline chat interface for Theater actors')
   .option('-c, --config <path>', 'Path to chat configuration JSON file', 'default')
   .option('-s, --server <address>', 'Theater server address', '127.0.0.1:9000')
-  .option('-v, --verbose', 'Enable verbose logging to console and file')\n  .option('--log', 'Enable file logging (quiet mode)')
+  .option('-v, --verbose', 'Enable verbose logging to console and file')
+  .option('--log', 'Enable file logging (quiet mode)')
   .option('-m, --message <text>', 'Send an initial message to start the conversation')
   .action(main); // Default action when no subcommand is provided
 
