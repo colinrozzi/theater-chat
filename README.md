@@ -163,6 +163,18 @@ This tool provides a generic inline chat interface for any Theater actor:
 - **JSON Configuration** - Flexible chat-state actor configuration
 - **Message Compatibility** - Full compatibility with Theater chat protocol
 - **Tool Integration** - Support for MCP servers and tool calls
+- **StartChat Protocol** - Automated initialization and setup workflow
+
+### Chat Session Flow
+
+theater-chat now follows an enhanced startup sequence for better automation:
+
+1. **🚀 Start Domain Actor** - Spawn the proxy actor with configuration
+2. **📋 Get Chat State Actor ID** - Retrieve the underlying chat actor
+3. **🤖 Start Chat Automation** - Trigger domain-specific setup (StartChat)
+4. **💬 Begin Chatting** - Ready for user interaction
+
+This flow allows proxy actors to perform automation tasks (like repository analysis, file indexing, or context setup) before the chat begins, providing users with real-time feedback during initialization.
 
 ## Development
 

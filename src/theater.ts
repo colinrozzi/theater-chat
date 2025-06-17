@@ -346,6 +346,47 @@ export class TheaterClient {
   }
 
   /**
+   * Start the chat session automation
+   */
+  async startChat(domainActorId: string): Promise<void> {
+    log(`Starting chat session automation for domain actor: ${domainActorId}`);
+    const connection = await this.createConnection();
+    log('Connection created for startChat');
+
+    try {
+      await connection.send('RequestActorMessage', {
+        id: domainActorId,
+        data: Array.from(Buffer.from(JSON.stringify({ type: 'StartChat' }), 'utf8'))
+      });
+
+      // Wait for response
+      while (true) {
+        const response = await connection.receive();
+        log(`startChat response: ${JSON.stringify(response)}`);
+
+        if ('RequestedMessage' in response && response.RequestedMessage) {
+          const responseData = Buffer.from(response.RequestedMessage.message).toString('utf8');
+          const parsedResponse = JSON.parse(responseData);
+
+          if (parsedResponse.type === 'Success') {
+            log('Chat session automation started successfully');
+            return;
+          } else if (parsedResponse.type === 'Error') {
+            throw new Error(`Failed to start chat: ${parsedResponse.message}`);
+          } else {
+            throw new Error(`Invalid response from domain actor: ${responseData}`);
+          }
+        } else if ('Error' in response && response.Error) {
+          throw new Error(`Failed to start chat session: ${JSON.stringify(response.Error)}`);
+        }
+        // Ignore other responses
+      }
+    } finally {
+      connection.close();
+    }
+  }
+
+  /**
    * Send a message through the domain actor for context injection
    */
   async sendMessage(domainActorId: string, message: string): Promise<void> {
@@ -400,11 +441,16 @@ export class TheaterClient {
   async startChatSession(config: TheaterChatConfig): Promise<{ domainActorId: string, chatActorId: string }> {
     log('Starting chat session with domain actor pattern');
 
-    // Start domain actor
+    // Step 1: Start domain actor
+    console.log('📋 Step 2: Getting chat state actor ID...');
     const domainActorId = await this.startDomainActor(config.actor.manifest_path, config.config);
 
-    // Get chat-state actor ID
+    // Step 2: Get chat-state actor ID
     const chatActorId = await this.getChatStateActorId(domainActorId);
+
+    // Step 3: Start chat automation (this triggers any domain-specific setup)
+    console.log('🤖 Step 3: Starting chat automation...');
+    await this.startChat(domainActorId);
 
     log(`Chat session started - Domain: ${domainActorId}, Chat: ${chatActorId}`);
     return { domainActorId, chatActorId };

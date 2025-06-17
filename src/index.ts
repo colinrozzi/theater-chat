@@ -338,9 +338,14 @@ async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
     theaterClient = new TheaterClient(options.server || '127.0.0.1:9000');
 
     // Start the chat session with domain actor pattern
+    console.log('🚀 Starting chat session...');
+    console.log('📋 Step 1: Starting domain actor...');
+    
     const session = await theaterClient.startChatSession(config);
     domainActorId = session.domainActorId;
     chatActorId = session.chatActorId;
+    
+    console.log('✅ Chat session ready!');
     log(`Chat session started - Domain: ${domainActorId}, Chat: ${chatActorId}`);
 
     // Render the interactive UI
