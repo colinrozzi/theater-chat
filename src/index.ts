@@ -628,104 +628,151 @@ function displayProviderSection(provider: string, configs: ConfigInfo[], indent:
   });
 }
 
+function displayProviderSectionMinimal(provider: string, configs: ConfigInfo[]): void {
+  const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
+  const count = configs.length;
+  
+  console.log(chalk.magenta.bold(`${providerName} (${count})`));
+  console.log('');
+  
+  configs.forEach((config, index) => {
+    displayConfigInfoMinimal(config);
+    
+    // Add spacing between configs, but not after the last one
+    if (index < configs.length - 1) {
+      console.log('');
+    }
+  });
+}
+
+function displayConfigInfoMinimal(config: ConfigInfo): void {
+  const modelDisplay = getModelDisplayName(config.model);
+  const toolsIndicator = config.hasTools ? chalk.green(`●`) : chalk.gray(`○`);
+  
+  let statusColor = chalk.green;
+  if (config.format === 'invalid') statusColor = chalk.red;
+  else if (config.format === 'legacy') statusColor = chalk.yellow;
+  
+  // Simple one-line format
+  const configLine = `  ${statusColor.bold(config.name)}`;
+  const modelLine = chalk.cyan(modelDisplay);
+  const toolsLine = `${toolsIndicator} ${config.toolCount} ${config.toolCount === 1 ? 'tool' : 'tools'}`;
+  
+  console.log(`${configLine} - ${config.title}`);
+  console.log(`  ${modelLine} • ${toolsLine}`);
+  
+  // Show description if available
+  if (config.description) {
+    const wrappedDescription = wrapText(config.description, 60);
+    wrappedDescription.forEach(line => {
+      console.log(`  ${chalk.italic.gray(line)}`);
+    });
+  }
+}
+
 function listConfigs(options: ConfigListOptions): void {
   const showGlobal = options.global || options.all;
   const showLocal = !options.global;
 
-  console.log(chalk.blue.bold('🎭 Theater Chat Configurations'));
-  console.log('');
+  // Minimal output - no main header
 
   if (showLocal) {
-    console.log(chalk.cyan.bold('📁 Local'));
-    const localConfigDir = '.theater-chat';
-    console.log(chalk.gray(`   ${path.resolve(localConfigDir)}`));
-    console.log('');
-
-    const localConfigs = collectConfigsInDirectory(localConfigDir);
-    
-    if (localConfigs.length === 0) {
-      console.log(chalk.gray('   No configurations found'));
-      console.log(chalk.gray('   Run ') + chalk.cyan('theater-chat init') + chalk.gray(' to create local configs'));
-    } else {
-      const configsByProvider = groupConfigsByProvider(localConfigs);
-      const providers = Object.entries(configsByProvider).filter(([_, configs]) => configs.length > 0);
+    // For local-only view, show minimal output
+    if (!showGlobal) {
+      const localConfigs = collectConfigsInDirectory('.theater-chat');
       
-      providers.forEach(([provider, configs], index) => {
-        displayProviderSection(provider, configs, '   ');
+      if (localConfigs.length === 0) {
+        console.log(chalk.gray('No configurations found'));
+        console.log(chalk.gray('Run ') + chalk.cyan('theater-chat init') + chalk.gray(' to create configs'));
+      } else {
+        const configsByProvider = groupConfigsByProvider(localConfigs);
+        const providers = Object.entries(configsByProvider).filter(([_, configs]) => configs.length > 0);
         
-        // Add spacing between provider sections, but not after the last one
-        if (index < providers.length - 1) {
-          console.log('');
-        }
-      });
+        providers.forEach(([provider, configs], index) => {
+          displayProviderSectionMinimal(provider, configs);
+          
+          // Add spacing between provider sections, but not after the last one
+          if (index < providers.length - 1) {
+            console.log('');
+          }
+        });
+      }
+    } else {
+      // For --all view, show minimal format with just a header
+      console.log(chalk.bold('Local'));
+      console.log('');
+
+      const localConfigs = collectConfigsInDirectory('.theater-chat');
+      
+      if (localConfigs.length === 0) {
+        console.log(chalk.gray('No configurations found'));
+        console.log(chalk.gray('Run ') + chalk.cyan('theater-chat init') + chalk.gray(' to create configs'));
+      } else {
+        const configsByProvider = groupConfigsByProvider(localConfigs);
+        const providers = Object.entries(configsByProvider).filter(([_, configs]) => configs.length > 0);
+        
+        providers.forEach(([provider, configs], index) => {
+          displayProviderSectionMinimal(provider, configs);
+          
+          // Add spacing between provider sections, but not after the last one
+          if (index < providers.length - 1) {
+            console.log('');
+          }
+        });
+      }
+      console.log('');
     }
-    console.log('');
   }
 
   if (showGlobal) {
-    console.log(chalk.cyan.bold('🌐 Global'));
-    const configDir = getConfigDir();
-    console.log(chalk.gray(`   ${configDir}`));
-    console.log('');
-
-    const globalConfigs = collectConfigsInDirectory(configDir);
-    
-    if (globalConfigs.length === 0) {
-      console.log(chalk.gray('   No configurations found'));
-      console.log(chalk.gray('   Run ') + chalk.cyan('theater-chat init --global') + chalk.gray(' to create global configs'));
-    } else {
-      const configsByProvider = groupConfigsByProvider(globalConfigs);
-      const providers = Object.entries(configsByProvider).filter(([_, configs]) => configs.length > 0);
+    // For global-only view, clean minimal output
+    if (!showLocal) {
+      const globalConfigs = collectConfigsInDirectory(getConfigDir());
       
-      providers.forEach(([provider, configs], index) => {
-        displayProviderSection(provider, configs, '   ');
+      if (globalConfigs.length === 0) {
+        console.log(chalk.gray('No global configurations found'));
+        console.log(chalk.gray('Run ') + chalk.cyan('theater-chat init --global') + chalk.gray(' to create configs'));
+      } else {
+        const configsByProvider = groupConfigsByProvider(globalConfigs);
+        const providers = Object.entries(configsByProvider).filter(([_, configs]) => configs.length > 0);
         
-        // Add spacing between provider sections, but not after the last one
-        if (index < providers.length - 1) {
-          console.log('');
-        }
-      });
+        providers.forEach(([provider, configs], index) => {
+          displayProviderSectionMinimal(provider, configs);
+          
+          // Add spacing between provider sections, but not after the last one
+          if (index < providers.length - 1) {
+            console.log('');
+          }
+        });
+      }
+    } else {
+      // For --all view, show with header
+      console.log(chalk.bold('Global'));
+      console.log('');
+
+      const globalConfigs = collectConfigsInDirectory(getConfigDir());
+      
+      if (globalConfigs.length === 0) {
+        console.log(chalk.gray('No configurations found'));
+        console.log(chalk.gray('Run ') + chalk.cyan('theater-chat init --global') + chalk.gray(' to create configs'));
+      } else {
+        const configsByProvider = groupConfigsByProvider(globalConfigs);
+        const providers = Object.entries(configsByProvider).filter(([_, configs]) => configs.length > 0);
+        
+        providers.forEach(([provider, configs], index) => {
+          displayProviderSectionMinimal(provider, configs);
+          
+          // Add spacing between provider sections, but not after the last one
+          if (index < providers.length - 1) {
+            console.log('');
+          }
+        });
+      }
+      console.log('');
     }
-    console.log('');
   }
 
-  // Usage information
-  if (showLocal) {
-    const allLocalConfigs = collectConfigsInDirectory('.theater-chat');
-    const allGlobalConfigs = showGlobal ? collectConfigsInDirectory(getConfigDir()) : [];
-    const allConfigs = [...allLocalConfigs, ...allGlobalConfigs];
-    const validConfigs = allConfigs.filter(c => c.format !== 'invalid');
-    
-    if (validConfigs.length > 0) {
-      console.log(chalk.blue.bold('📖 Usage'));
-      console.log('');
-      
-      console.log(chalk.gray('   Basic commands:'));
-      console.log(`   ${chalk.cyan('theater-chat')}                    # Default config`);
-      
-      // Show examples with the actual configs found
-      const examples = validConfigs.slice(0, 2);
-      examples.forEach(config => {
-        const command = `theater-chat --config ${config.name}`;
-        const paddedCommand = command.padEnd(35);
-        console.log(`   ${chalk.cyan(paddedCommand)} # ${config.title}`);
-      });
-      
-      console.log('');
-      console.log(chalk.gray('   Management:'));
-      console.log(`   ${chalk.cyan('theater-chat list --all')}         # Show all configurations`);
-      console.log(`   ${chalk.cyan('theater-chat init')}               # Initialize local configs`);
-      
-      // Migration tip if needed
-      const hasLegacy = validConfigs.some(c => c.format === 'legacy');
-      if (hasLegacy) {
-        console.log('');
-        console.log(chalk.yellow('   💡 Some configs use legacy format. Consider updating to theater format.'));
-      }
-      
-      console.log('');
-    }
-  }
+  // No usage section - keep it minimal
 }
 
 // Old listConfigsInDirectory function removed - functionality integrated into collectConfigsInDirectory and displayConfigInfo
