@@ -26,6 +26,7 @@ export interface ChatConfig {
   max_tokens?: number;
   system_prompt?: string;
   title?: string;
+  description?: string;  // New optional field
   mcp_servers?: MCPServer[];
 }
 
