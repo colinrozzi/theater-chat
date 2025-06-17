@@ -377,7 +377,7 @@ function isChatConfig(obj: any): obj is ChatConfig {
 interface ConfigInfo {
   name: string;
   title: string;
-  description?: string;  // New optional field
+  description?: string;  // Optional field
   model: string;
   provider: string;
   hasTools: boolean;
@@ -418,19 +418,21 @@ function analyzeConfig(name: string, configPath: string): ConfigInfo {
     } else {
       format = 'invalid';
       title = 'Invalid config format';
-      description = undefined;
       model = 'unknown';
       provider = 'unknown';
       hasTools = false;
       toolCount = 0;
     }
 
-    return { name, title, description, model, provider, hasTools, toolCount, format };
+    const result: ConfigInfo = { name, title, model, provider, hasTools, toolCount, format };
+    if (description) {
+      result.description = description;
+    }
+    return result;
   } catch (error) {
     return {
       name,
       title: 'Invalid JSON',
-      description: undefined,
       model: 'unknown',
       provider: 'unknown',
       hasTools: false,
