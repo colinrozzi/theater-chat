@@ -452,16 +452,16 @@ function getFormatIcon(format: 'legacy' | 'theater' | 'invalid'): string {
 }
 
 function groupConfigsByProvider(configs: ConfigInfo[]): Record<string, ConfigInfo[]> {
-  const groups: Record<string, ConfigInfo[]> = {
-    anthropic: [],
-    openai: [],
-    google: [],
-    unknown: []
+  const groups = {
+    anthropic: [] as ConfigInfo[],
+    openai: [] as ConfigInfo[],
+    google: [] as ConfigInfo[],
+    unknown: [] as ConfigInfo[]
   };
 
   configs.forEach(config => {
     const provider = config.provider.toLowerCase();
-    if (groups[provider]) {
+    if (provider === 'anthropic' || provider === 'openai' || provider === 'google') {
       groups[provider].push(config);
     } else {
       groups.unknown.push(config);
