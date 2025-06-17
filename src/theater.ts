@@ -364,7 +364,6 @@ export class TheaterClient {
       };
 
       log(`Sending message data: ${JSON.stringify(messageData)}`);
-      console.log(`DEBUG: Sending message data: ${JSON.stringify(messageData)}`);
 
       await connection.send('RequestActorMessage', {
         id: domainActorId,

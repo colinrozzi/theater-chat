@@ -66,7 +66,11 @@ function createDefaultConfigs(configDir: string): void {
   fs.mkdirSync(configDir, { recursive: true });
 
   // Default config - Claude Sonnet 4
-  const defaultConfig: ChatConfig = {
+  const defaultConfig: TheaterChatConfig = {
+    actor: {
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
+    },
+    config: {
     model_config: {
       model: "claude-sonnet-4-20250514",
       provider: "anthropic"
@@ -76,10 +80,15 @@ function createDefaultConfigs(configDir: string): void {
     system_prompt: "You are a helpful assistant.",
     title: "Theater Chat",
     mcp_servers: []
+    }
   };
 
   // Sonnet base config
-  const sonnetConfig: ChatConfig = {
+  const sonnetConfig: TheaterChatConfig = {
+    actor: {
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
+    },
+    config: {
     model_config: {
       model: "claude-sonnet-4-20250514",
       provider: "anthropic"
@@ -89,57 +98,109 @@ function createDefaultConfigs(configDir: string): void {
     system_prompt: "You are a helpful programming assistant.",
     title: "Sonnet Assistant",
     mcp_servers: []
+    }
   };
 
   // Create sonnet directory and specialized configs
   const sonnetDir = path.join(configDir, 'sonnet');
   fs.mkdirSync(sonnetDir, { recursive: true });
 
-  const sonnetGitConfig: ChatConfig = {
-    ...sonnetConfig,
-    system_prompt: "You are a helpful programming assistant with git access. You can help with version control, reviewing changes, and managing repositories.",
-    title: "Sonnet + Git",
-    mcp_servers: [
-      {
-        "actor_id": null,
-        "actor": {
-          "manifest_path": "/path/to/git-mcp-actor/manifest.toml"
-        },
-        "tools": null
-      }
-    ]
+  const sonnetGitConfig: TheaterChatConfig = {
+    actor: {
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
+    },
+    config: {
+      model_config: {
+        model: "claude-sonnet-4-20250514",
+        provider: "anthropic"
+      },
+      temperature: 1.0,
+      max_tokens: 8192,
+      system_prompt: "You are a helpful programming assistant with git access. You can help with version control, reviewing changes, and managing repositories.",
+      title: "Sonnet + Git",
+      mcp_servers: [
+        {
+          "actor_id": null,
+          "actor": {
+            "manifest_path": "/Users/colinrozzi/work/actor-registry/git-mcp-actor/manifest.toml"
+          },
+          "tools": null
+        }
+      ]
+    }
   };
 
-  const sonnetFsConfig: ChatConfig = {
-    ...sonnetConfig,
-    system_prompt: "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
-    title: "Sonnet + Filesystem",
-    mcp_servers: [
-      {
-        "actor_id": null,
-        "stdio": {
-          "command": "/path/to/fs-mcp-server",
-          "args": ["--allowed-dirs", "."]
-        },
-        "tools": null
-      }
-    ]
+  const sonnetFsConfig: TheaterChatConfig = {
+    actor: {
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
+    },
+    config: {
+      model_config: {
+        model: "claude-sonnet-4-20250514",
+        provider: "anthropic"
+      },
+      temperature: 1.0,
+      max_tokens: 8192,
+      system_prompt: "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
+      title: "Sonnet + Filesystem",
+      mcp_servers: [
+        {
+          "actor_id": null,
+          "stdio": {
+            "command": "/path/to/fs-mcp-server",
+            "args": ["--allowed-dirs", "."]
+          },
+          "tools": null
+        }
+      ]
+    }
   };
 
   // Gemini configs
   const geminiDir = path.join(configDir, 'gemini');
   fs.mkdirSync(geminiDir, { recursive: true });
 
-  const geminiConfig: ChatConfig = {
-    model_config: {
-      model: "gemini-1.5-pro",
-      provider: "google"
+  const geminiConfig: TheaterChatConfig = {
+    actor: {
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
     },
-    temperature: 1.0,
-    max_tokens: 8192,
-    system_prompt: "You are a helpful programming assistant.",
-    title: "Gemini Assistant",
-    mcp_servers: []
+    config: {
+      model_config: {
+        model: "gemini-1.5-pro",
+        provider: "google"
+      },
+      temperature: 1.0,
+      max_tokens: 8192,
+      system_prompt: "You are a helpful programming assistant.",
+      title: "Gemini Assistant",
+      mcp_servers: []
+    }
+  };
+
+  const geminiFsConfig: TheaterChatConfig = {
+    actor: {
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
+    },
+    config: {
+      model_config: {
+        model: "gemini-1.5-pro",
+        provider: "google"
+      },
+      temperature: 1.0,
+      max_tokens: 8192,
+      system_prompt: "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
+      title: "Gemini + Filesystem",
+      mcp_servers: [
+        {
+          "actor_id": null,
+          "stdio": {
+            "command": "/path/to/fs-mcp-server",
+            "args": ["--allowed-dirs", "."]
+          },
+          "tools": null
+        }
+      ]
+    }
   };
 
   // Write all configs
@@ -148,21 +209,7 @@ function createDefaultConfigs(configDir: string): void {
   fs.writeFileSync(path.join(sonnetDir, 'git.json'), JSON.stringify(sonnetGitConfig, null, 2));
   fs.writeFileSync(path.join(sonnetDir, 'fs.json'), JSON.stringify(sonnetFsConfig, null, 2));
   fs.writeFileSync(path.join(configDir, 'gemini.json'), JSON.stringify(geminiConfig, null, 2));
-  fs.writeFileSync(path.join(geminiDir, 'fs.json'), JSON.stringify({
-    ...geminiConfig,
-    title: "Gemini + Filesystem",
-    system_prompt: "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
-    mcp_servers: [
-      {
-        "actor_id": null,
-        "stdio": {
-          "command": "/path/to/fs-mcp-server",
-          "args": ["--allowed-dirs", "."]
-        },
-        "tools": null
-      }
-    ]
-  }, null, 2));
+  fs.writeFileSync(path.join(geminiDir, 'fs.json'), JSON.stringify(geminiFsConfig, null, 2));
 
   log(`Created default configurations in ${configDir}`);
   console.log(chalk.green(`* Created configuration directory at ${configDir}`));
@@ -432,25 +479,30 @@ function initConfigs(options: ConfigInitOptions): void {
       fs.mkdirSync(localConfigDir, { recursive: true });
 
       // Create a simple example local config
-      const exampleConfig: ChatConfig = {
-        model_config: {
-          model: "claude-sonnet-4-20250514",
-          provider: "anthropic"
+      const exampleConfig: TheaterChatConfig = {
+        actor: {
+          manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
         },
-        temperature: 1.0,
-        max_tokens: 8192,
-        system_prompt: `You are a helpful programming assistant working on the ${path.basename(process.cwd())} project.`,
-        title: `${path.basename(process.cwd())} Assistant`,
-        mcp_servers: [
-          {
-            "actor_id": null,
-            "stdio": {
-              "command": "/path/to/fs-mcp-server",
-              "args": ["--allowed-dirs", "."]
-            },
-            "tools": null
-          }
-        ]
+        config: {
+          model_config: {
+            model: "claude-sonnet-4-20250514",
+            provider: "anthropic"
+          },
+          temperature: 1.0,
+          max_tokens: 8192,
+          system_prompt: `You are a helpful programming assistant working on the ${path.basename(process.cwd())} project.`,
+          title: `${path.basename(process.cwd())} Assistant`,
+          mcp_servers: [
+            {
+              "actor_id": null,
+              "stdio": {
+                "command": "/path/to/fs-mcp-server",
+                "args": ["--allowed-dirs", "."]
+              },
+              "tools": null
+            }
+          ]
+        }
       };
 
       fs.writeFileSync(
@@ -460,7 +512,7 @@ function initConfigs(options: ConfigInitOptions): void {
 
       console.log(chalk.green(`* Created local config directory: ${path.resolve(localConfigDir)}`));
       console.log(chalk.blue('  Created example config:'));
-      console.log(`    default - ${exampleConfig.title}`);
+      console.log(`    default - ${exampleConfig.config.title}`);
       console.log('');
       console.log(chalk.gray('  Tip: Add .theater-chat/ to your .gitignore to keep configs private'));
     }
