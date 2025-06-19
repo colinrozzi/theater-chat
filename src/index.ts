@@ -7,6 +7,7 @@ import path from 'path';
 import os from 'os';
 import { TheaterClient } from './theater.js';
 import { renderApp } from './ui.js';
+import { initializeLogger, createComponentLogger } from './logger.js';
 import type {
   ChatConfig,
   TheaterChatConfig,
@@ -15,62 +16,7 @@ import type {
   ConfigInitOptions
 } from './types.js';
 
-// Improved logging system
-function getLogDirectory(): string {
-  const platform = os.platform();
-  
-  if (platform === 'win32') {
-    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-    return path.join(appData, 'theater-chat', 'logs');
-  } else {
-    const xdgDataHome = process.env.XDG_DATA_HOME;
-    if (xdgDataHome) {
-      return path.join(xdgDataHome, 'theater-chat', 'logs');
-    }
-    return path.join(os.homedir(), '.local', 'share', 'theater-chat', 'logs');
-  }
-}
-
-let loggingEnabled = false;
-let verboseMode = false;
-let logFile: string;
-
-function initializeLogging(verbose: boolean = false, enableLogging: boolean = false): void {
-  verboseMode = verbose;
-  loggingEnabled = enableLogging || verbose;
-  
-  if (loggingEnabled) {
-    const logDirectory = getLogDirectory();
-    logFile = path.join(logDirectory, 'theater-chat.log');
-    
-    fs.mkdirSync(logDirectory, { recursive: true });
-    
-    const sessionStart = `=== theater-chat session started at ${new Date().toISOString()} ===\n`;
-    fs.writeFileSync(logFile, sessionStart);
-  }
-}
-
-function log(message: string, level: string = 'INFO'): void {
-  if (!loggingEnabled) return;
-  
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${level}: ${message}\n`;
-  
-  if (logFile) {
-    try {
-      fs.appendFileSync(logFile, logMessage);
-    } catch (error) {
-      // Silently fail if we can't write to log
-    }
-  }
-  
-  if (verboseMode) {
-    const colorizedLevel = level === 'ERROR' ? chalk.red(`[${level}]`) : 
-                          level === 'WARN' ? chalk.yellow(`[${level}]`) : 
-                          chalk.blue(`[${level}]`);
-    console.error(`${colorizedLevel} ${message}`);
-  }
-}
+const log = createComponentLogger('Main');
 
 program
   .name('theater-chat')
@@ -257,7 +203,7 @@ function createDefaultConfigs(configDir: string): void {
   fs.writeFileSync(path.join(configDir, 'gemini.json'), JSON.stringify(geminiConfig, null, 2));
   fs.writeFileSync(path.join(geminiDir, 'fs.json'), JSON.stringify(geminiFsConfig, null, 2));
 
-  log(`Created default configurations in ${configDir}`);
+  log.info(`Created default configurations in ${configDir}`);
   console.log(chalk.green(`* Created configuration directory at ${configDir}`));
   console.log(chalk.blue('Available configs:'));
   console.log('  default       - Basic Claude Sonnet 4');
@@ -286,7 +232,7 @@ function resolveConfigPath(configInput: string): string {
   // Check local .theater-chat directory first
   const localPath = path.join('.theater-chat', `${configInput}.json`);
   if (fs.existsSync(localPath)) {
-    log(`Using local config: ${localPath}`);
+    log.info(`Using local config: ${localPath}`);
     return localPath;
   }
 
@@ -296,7 +242,7 @@ function resolveConfigPath(configInput: string): string {
   // Check global config directory
   const globalPath = path.join(configDir, `${configInput}.json`);
   if (fs.existsSync(globalPath)) {
-    log(`Using global config: ${globalPath}`);
+    log.info(`Using global config: ${globalPath}`);
     return globalPath;
   }
 
@@ -305,36 +251,40 @@ function resolveConfigPath(configInput: string): string {
 }
 
 async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
-  // Initialize logging based on options
-  initializeLogging(options.verbose, options.log);
+  // Initialize the centralized logger first
+  initializeLogger({
+    verbose: options.verbose,
+    log: options.log,
+    debug: process.env.NODE_ENV === 'development'
+  });
   let domainActorId: string | null = null;
   let chatActorId: string | null = null;
   let theaterClient: TheaterClient | null = null;
 
   // Signal handlers - let the UI cleanup handle actor stopping
   process.on('SIGINT', () => {
-    log('Received SIGINT - UI will handle cleanup');
+    log.info('Received SIGINT - UI will handle cleanup');
     process.exit(0);
   });
 
   process.on('SIGTERM', () => {
-    log('Received SIGTERM - UI will handle cleanup');
+    log.info('Received SIGTERM - UI will handle cleanup');
     process.exit(0);
   });
 
   try {
-    log('Starting theater chat session');
+    log.info('Starting theater chat session');
 
     // Resolve and load configuration
     const configPath = resolveConfigPath(options.config || 'default');
     const config = loadConfig(configPath);
-    log(`Loaded config from: ${configPath}`);
+    log.info(`Loaded config from: ${configPath}`);
     if (options && options.verbose) {
-      log(`Config contents: ${JSON.stringify(config, null, 2)}`);
+      log.debug(`Config contents: ${JSON.stringify(config, null, 2)}`);
     }
 
     // Create Theater client
-    log(`Creating Theater client for: ${options.server || '127.0.0.1:9000'}`);
+    log.info(`Creating Theater client for: ${options.server || '127.0.0.1:9000'}`);
     theaterClient = new TheaterClient(options.server || '127.0.0.1:9000');
 
     // Start the chat session - actors only, no StartChat yet
@@ -348,10 +298,10 @@ async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
     console.log('📋 Step 2: Setting up UI channel...');
     console.log('🤖 Step 3: Starting chat automation...');
     
-    log(`Chat session prepared - Domain: ${domainActorId}, Chat: ${chatActorId}`);
+    log.info(`Chat session prepared - Domain: ${domainActorId}, Chat: ${chatActorId}`);
 
     // Render the interactive UI - will handle StartChat after channel is ready
-    log('Starting interactive UI...');
+    log.info('Starting interactive UI...');
     await renderApp(theaterClient, domainActorId, chatActorId, config, options.message);
 
   } catch (error) {
@@ -359,9 +309,9 @@ async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
     const errorStack = error instanceof Error ? error.stack : undefined;
 
     console.error(chalk.red(`Error: ${errorMessage}`));
-    log(`ERROR: ${errorMessage}`, 'ERROR');
+    log.error(`ERROR: ${errorMessage}`);
     if (errorStack) {
-      log(`Stack trace: ${errorStack}`, 'ERROR');
+      log.error(`Stack trace: ${errorStack}`);
     }
     process.exit(1);
   }
@@ -411,7 +361,7 @@ function validateConfig(config: TheaterChatConfig): void {
   // config.config is domain-specific, so we don't validate its structure here
   // The domain actor will validate its own configuration
 
-  log('Config validation passed');
+  log.info('Config validation passed');
 }
 
 // Enhanced config management functions

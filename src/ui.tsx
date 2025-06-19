@@ -5,6 +5,9 @@ import chalk from 'chalk';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ChatConfig, TheaterChatConfig, Message, SetupStatus, ToolDisplayMode, InputMode, ChannelStream } from './types.js';
 import type { TheaterClient } from './theater.js';
+import { createComponentLogger } from './logger.js';
+
+const log = createComponentLogger('UI');
 
 interface ChatAppProps {
   theaterClient: TheaterClient;
@@ -142,7 +145,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
               
               // Debug specific to user messages
               if (isUserMessage) {
-                console.log('DEBUG: Found user message:', JSON.stringify(parsedMessage.message?.entry?.Message?.content, null, 2));
+                log.debug(`Found user message: ${JSON.stringify(parsedMessage.message?.entry?.Message?.content, null, 2)}`);
               }
 
               if (isUserMessage) {
@@ -271,7 +274,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
               }
             }
           } catch (parseError) {
-            console.error('Failed to parse message:', parseError);
+            log.error(`Failed to parse message: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
             const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
             addMessage('system', `Error parsing message: ${errorMessage}`, 'complete');
             setIsGenerating(false); // Clear loading on error
@@ -281,7 +284,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
         setChannel(channelStream);
 
         // Always trigger StartChat after channel is ready and listening
-        console.log('✅ Channel ready! Starting automation...');
+        log.info('Channel ready! Starting automation...');
         
         // Add a small delay to ensure message handler is fully ready
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -289,7 +292,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
         await theaterClient.startChat(domainActorId);
 
         setSetupStatus('ready');
-        console.log('✅ Chat session ready!');
+        log.info('Chat session ready!');
 
         // Initial message will be handled by a separate useEffect
 
@@ -297,7 +300,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
         setSetupStatus('error');
         const errorMessage = error instanceof Error ? error.message : String(error);
         setSetupMessage(`Error: ${errorMessage}`);
-        console.error('Setup error:', error);
+        log.error(`Setup error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -328,7 +331,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
       // Input clearing now handled by MultiLineInput
 
     } catch (error) {
-      console.error('Error sending message:', error);
+      log.error(`Error sending message: ${error instanceof Error ? error.message : String(error)}`);
       const errorMessage = error instanceof Error ? error.message : String(error);
       addMessage('system', `Error sending message: ${errorMessage}`, 'complete');
       setIsGenerating(false); // Clear on error

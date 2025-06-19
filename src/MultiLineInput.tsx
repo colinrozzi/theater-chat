@@ -3,15 +3,9 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import fs from 'fs';
 import path from 'path';
 import type { MultiLineInputProps } from './types.js';
+import { createComponentLogger } from './logger.js';
 
-// Set up input-specific logging
-// Minimal logging for input component
-function logInput(message: string, level: string = 'INFO'): void {
-  // Only log if we're in development mode
-  if (process.env.NODE_ENV === 'development') {
-    console.error(`[MultiLineInput ${level}] ${message}`);
-  }
-}
+const log = createComponentLogger('MultiLineInput');
 
 /**
  * Multi-line text input - fully controlled by parent
@@ -29,7 +23,7 @@ export default function MultiLineInput({
   onCursorChange
 }: MultiLineInputProps) {
   const { stdout } = useStdout();
-  logInput(`Render: content="${content}", cursor=${cursorPosition}`);
+  log.debug(`Render: content="${content}", cursor=${cursorPosition}`);
 
   // Convert content to lines for display
   const lines = content.split('\n');
@@ -48,7 +42,7 @@ export default function MultiLineInput({
 
   // Simple operations that just call parent callbacks
   const insertText = useCallback((text: string) => {
-    logInput(`Insert: "${text}" at ${cursorPosition}`);
+    log.debug(`Insert: "${text}" at ${cursorPosition}`);
     const before = content.slice(0, cursorPosition);
     const after = content.slice(cursorPosition);
     const newContent = before + text + after;
@@ -59,7 +53,7 @@ export default function MultiLineInput({
   }, [content, cursorPosition, onContentChange, onCursorChange]);
 
   const deleteChar = useCallback((direction: 'forward' | 'backward' = 'backward') => {
-    logInput(`Delete: direction=${direction}, cursor=${cursorPosition}`);
+    log.debug(`Delete: direction=${direction}, cursor=${cursorPosition}`);
 
     if (direction === 'backward' && cursorPosition > 0) {
       const before = content.slice(0, cursorPosition - 1);
@@ -81,7 +75,7 @@ export default function MultiLineInput({
 
   const moveCursor = useCallback((newPos: number) => {
     const clampedPos = Math.max(0, Math.min(content.length, newPos));
-    logInput(`Move cursor: ${cursorPosition} -> ${clampedPos}`);
+    log.debug(`Move cursor: ${cursorPosition} -> ${clampedPos}`);
     onCursorChange?.(clampedPos);
   }, [content.length, cursorPosition, onCursorChange]);
 
@@ -94,7 +88,7 @@ export default function MultiLineInput({
 
   // Key input handler
   useInput((input, key) => {
-    logInput(`Key: input="${input}", key=${JSON.stringify(key)}`);
+    log.debug(`Key: input="${input}", key=${JSON.stringify(key)}`);
 
     if (key.escape) {
       onModeChange?.('command');

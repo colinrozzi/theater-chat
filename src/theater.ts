@@ -4,15 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { ChatConfig, TheaterChatConfig, TheaterMessage, WSMessage } from './types.js';
+import { createComponentLogger } from './logger.js';
 
-// Logging utility
-// Minimal logging - only if verbose mode is enabled
-function log(message: string, level: string = 'INFO'): void {
-  // Only log if we're in development or verbose mode
-  if (process.env.NODE_ENV === 'development' || process.env.THEATER_VERBOSE) {
-    console.error(`[Theater Client ${level}] ${message}`);
-  }
-}
+const log = createComponentLogger('TheaterClient');
 
 interface FrameMessage {
   Complete?: number[];
@@ -277,9 +271,9 @@ export class TheaterClient {
    * Start a domain actor and return its ID
    */
   async startDomainActor(manifestPath: string, initialState: any): Promise<string> {
-    log(`Starting domain actor with manifest: ${manifestPath}`);
+    log.info(`Starting domain actor with manifest: ${manifestPath}`);
     const connection = await this.createConnection();
-    log('Connection created for startDomainActor');
+    log.debug('Connection created for startDomainActor');
 
     try {
       await connection.send('StartActor', {
@@ -294,7 +288,7 @@ export class TheaterClient {
         const response = await connection.receive();
 
         if ('ActorStarted' in response && response.ActorStarted) {
-          log(`Domain actor started: ${response.ActorStarted.id}`);
+          log.info(`Domain actor started: ${response.ActorStarted.id}`);
           return response.ActorStarted.id;
         } else if ('Error' in response && response.Error) {
           throw new Error(`Failed to start domain actor: ${JSON.stringify(response.Error)}`);
@@ -310,9 +304,9 @@ export class TheaterClient {
    * Get the chat-state actor ID from a domain actor
    */
   async getChatStateActorId(domainActorId: string): Promise<string> {
-    log(`Getting chat-state actor ID from domain actor: ${domainActorId}`);
+    log.info(`Getting chat-state actor ID from domain actor: ${domainActorId}`);
     const connection = await this.createConnection();
-    log('Connection created for getChatStateActorId');
+    log.debug('Connection created for getChatStateActorId');
 
     try {
       await connection.send('RequestActorMessage', {
@@ -323,14 +317,14 @@ export class TheaterClient {
       // Wait for response
       while (true) {
         const response = await connection.receive();
-        log(`getChatStateActorId response: ${JSON.stringify(response)}`);
+        log.debug(`getChatStateActorId response: ${JSON.stringify(response)}`);
 
         if ('RequestedMessage' in response && response.RequestedMessage) {
           const responseData = Buffer.from(response.RequestedMessage.message).toString('utf8');
           const parsedResponse = JSON.parse(responseData);
 
           if (parsedResponse.type === 'ChatStateActorId' && parsedResponse.actor_id) {
-            log(`Got chat-state actor ID: ${parsedResponse.actor_id}`);
+            log.info(`Got chat-state actor ID: ${parsedResponse.actor_id}`);
             return parsedResponse.actor_id;
           } else {
             throw new Error(`Invalid response from domain actor: ${responseData}`);
@@ -349,9 +343,9 @@ export class TheaterClient {
    * Start the chat session automation
    */
   async startChat(domainActorId: string): Promise<void> {
-    log(`Starting chat session automation for domain actor: ${domainActorId}`);
+    log.info(`Starting chat session automation for domain actor: ${domainActorId}`);
     const connection = await this.createConnection();
-    log('Connection created for startChat');
+    log.debug('Connection created for startChat');
 
     try {
       await connection.send('RequestActorMessage', {
@@ -362,14 +356,14 @@ export class TheaterClient {
       // Wait for response
       while (true) {
         const response = await connection.receive();
-        log(`startChat response: ${JSON.stringify(response)}`);
+        log.debug(`startChat response: ${JSON.stringify(response)}`);
 
         if ('RequestedMessage' in response && response.RequestedMessage) {
           const responseData = Buffer.from(response.RequestedMessage.message).toString('utf8');
           const parsedResponse = JSON.parse(responseData);
 
           if (parsedResponse.type === 'Success') {
-            log('Chat session automation started successfully');
+            log.info('Chat session automation started successfully');
             return;
           } else if (parsedResponse.type === 'Error') {
             throw new Error(`Failed to start chat: ${parsedResponse.message}`);
@@ -390,9 +384,9 @@ export class TheaterClient {
    * Send a message through the domain actor for context injection
    */
   async sendMessage(domainActorId: string, message: string): Promise<void> {
-    log(`Sending message through domain actor: ${domainActorId}`);
+    log.info(`Sending message through domain actor: ${domainActorId}`);
     const connection = await this.createConnection();
-    log('Connection created for sendMessage');
+    log.debug('Connection created for sendMessage');
 
     try {
       const messageData = {
@@ -403,7 +397,7 @@ export class TheaterClient {
         }
       };
 
-      log(`Sending message data: ${JSON.stringify(messageData)}`);
+      log.debug(`Sending message data: ${JSON.stringify(messageData)}`);
 
       await connection.send('RequestActorMessage', {
         id: domainActorId,
@@ -413,14 +407,14 @@ export class TheaterClient {
       // Wait for response
       while (true) {
         const response = await connection.receive();
-        log(`sendMessage response: ${JSON.stringify(response)}`);
+        log.debug(`sendMessage response: ${JSON.stringify(response)}`);
 
         if ('RequestedMessage' in response && response.RequestedMessage) {
           const responseData = Buffer.from(response.RequestedMessage.message).toString('utf8');
           const parsedResponse = JSON.parse(responseData);
 
           if (parsedResponse.type === 'Success') {
-            log('Message sent successfully through domain actor');
+            log.info('Message sent successfully through domain actor');
             return;
           } else {
             throw new Error(`Domain actor rejected message: ${responseData}`);
@@ -443,7 +437,7 @@ export class TheaterClient {
    * Sets up actors but doesn't trigger StartChat - UI will handle that after channel setup
    */
   async startChatSession(config: TheaterChatConfig): Promise<{ domainActorId: string, chatActorId: string }> {
-    log('Starting chat session with domain actor pattern');
+    log.info('Starting chat session with domain actor pattern');
 
     // Step 1: Start domain actor
     const domainActorId = await this.startDomainActor(config.actor.manifest_path, config.config);
@@ -453,7 +447,7 @@ export class TheaterClient {
 
     // Don't call startChat() here - let UI handle it after channel setup
 
-    log(`Chat session prepared - Domain: ${domainActorId}, Chat: ${chatActorId}`);
+    log.info(`Chat session prepared - Domain: ${domainActorId}, Chat: ${chatActorId}`);
     return { domainActorId, chatActorId };
   }
 
@@ -462,13 +456,13 @@ export class TheaterClient {
    * @deprecated Use startChatSession instead
    */
   async startChatActor(config: ChatConfig): Promise<string> {
-    log('Starting chat actor...');
+    log.info('Starting chat actor...');
     const connection = await this.createConnection();
-    log('Connection created for startChatActor');
+    log.debug('Connection created for startChatActor');
 
     try {
       const conversationId = uuidv4();
-      log(`Generated conversation ID: ${conversationId}`);
+      log.debug(`Generated conversation ID: ${conversationId}`);
       const manifestPath = "/Users/colinrozzi/work/actor-registry/chat-state/manifest.toml";
 
       const initialState = {
@@ -517,32 +511,32 @@ export class TheaterClient {
 
     // Start continuous message listening
     const startMessageListener = async (): Promise<void> => {
-      log('Starting message listener loop');
+      log.debug('Starting message listener loop');
       try {
         while (true) {
-          log('Waiting for next message...');
+          log.debug('Waiting for next message...');
           const message = await connection.receive();
-          log(`Received message: ${JSON.stringify(message)}`);
+          log.debug(`Received message: ${JSON.stringify(message)}`);
 
           if ('ChannelOpened' in message && message.ChannelOpened) {
             channelId = message.ChannelOpened.channel_id;
-            log(`Channel opened: ${channelId}`);
+            log.info(`Channel opened: ${channelId}`);
           } else if ('ChannelMessage' in message && message.ChannelMessage) {
-            log(`Received channel message from ${message.ChannelMessage.sender_id}, length: ${message.ChannelMessage.message.length}`);
+            log.debug(`Received channel message from ${message.ChannelMessage.sender_id}, length: ${message.ChannelMessage.message.length}`);
             const fullMessageText = Buffer.from(message.ChannelMessage.message).toString('utf8');
-            log(`Full message content: ${fullMessageText}`);
+            log.debug(`Full message content: ${fullMessageText}`);
             // Notify all registered handlers
-            log(`Notifying ${messageHandlers.size} message handlers`);
+            log.debug(`Notifying ${messageHandlers.size} message handlers`);
             for (const handler of messageHandlers) {
               try {
                 handler(message.ChannelMessage);
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                log(`Error in message handler: ${errorMessage}`, 'ERROR');
+                log.error(`Error in message handler: ${errorMessage}`);
               }
             }
           } else if ('ChannelClosed' in message && message.ChannelClosed) {
-            log('Channel closed');
+            log.info('Channel closed');
             break;
           } else if ('Error' in message && message.Error) {
             log(`Channel error: ${JSON.stringify(message.Error)}`, 'ERROR');
@@ -615,7 +609,7 @@ export class TheaterClient {
               }]
             }
           };
-          log(`Sending AddMessage request: ${JSON.stringify(addMessageRequest)}`);
+          log.debug(`Sending AddMessage request: ${JSON.stringify(addMessageRequest)}`);
 
           await sendConnection.send('RequestActorMessage', {
             id: targetActorId,
@@ -623,7 +617,7 @@ export class TheaterClient {
           });
 
           const addResponse = await sendConnection.receive();
-          log(`AddMessage response: ${JSON.stringify(addResponse)}`);
+          log.debug(`AddMessage response: ${JSON.stringify(addResponse)}`);
           if ('Error' in addResponse && addResponse.Error) {
             throw new Error(`Failed to add message: ${JSON.stringify(addResponse.Error)}`);
           }
@@ -632,7 +626,7 @@ export class TheaterClient {
           const generateRequest = {
             type: 'generate_completion'
           };
-          log(`Sending GenerateCompletion request: ${JSON.stringify(generateRequest)}`);
+          log.debug(`Sending GenerateCompletion request: ${JSON.stringify(generateRequest)}`);
 
           await sendConnection.send('RequestActorMessage', {
             id: targetActorId,
@@ -640,11 +634,11 @@ export class TheaterClient {
           });
 
           const generateResponse = await sendConnection.receive();
-          log(`GenerateCompletion response: ${JSON.stringify(generateResponse)}`);
+          log.debug(`GenerateCompletion response: ${JSON.stringify(generateResponse)}`);
           if ('Error' in generateResponse && generateResponse.Error) {
             throw new Error(`Failed to generate completion: ${JSON.stringify(generateResponse.Error)}`);
           }
-          log('Message send completed successfully');
+          log.info('Message send completed successfully');
         } finally {
           sendConnection.close();
         }
