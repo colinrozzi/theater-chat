@@ -438,21 +438,22 @@ export class TheaterClient {
   /**
    * Start a complete chat session with domain actor pattern
    */
+  /**
+   * Start a chat session with domain actor pattern
+   * Sets up actors but doesn't trigger StartChat - UI will handle that after channel setup
+   */
   async startChatSession(config: TheaterChatConfig): Promise<{ domainActorId: string, chatActorId: string }> {
     log('Starting chat session with domain actor pattern');
 
     // Step 1: Start domain actor
-    console.log('📋 Step 2: Getting chat state actor ID...');
     const domainActorId = await this.startDomainActor(config.actor.manifest_path, config.config);
 
     // Step 2: Get chat-state actor ID
     const chatActorId = await this.getChatStateActorId(domainActorId);
 
-    // Step 3: Start chat automation (this triggers any domain-specific setup)
-    console.log('🤖 Step 3: Starting chat automation...');
-    await this.startChat(domainActorId);
+    // Don't call startChat() here - let UI handle it after channel setup
 
-    log(`Chat session started - Domain: ${domainActorId}, Chat: ${chatActorId}`);
+    log(`Chat session prepared - Domain: ${domainActorId}, Chat: ${chatActorId}`);
     return { domainActorId, chatActorId };
   }
 

@@ -1,4 +1,5 @@
 import { render, Box, Text, useInput, useApp } from 'ink';
+import { render, Box, Text, useInput, useApp } from 'ink';
 import MultiLineInput from './MultiLineInput.js';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
@@ -127,12 +128,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
         // Wait a bit for actor to fully initialize
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        setChannel(channelStream);
-        setSetupStatus('ready');
-
-        // Don't add welcome message - keep it clean
-
-        // Set up message handler
+        // Set up message handler BEFORE triggering StartChat
         channelStream.onMessage((message) => {
           try {
             // Convert message bytes to string
@@ -258,6 +254,15 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
             setIsGenerating(false); // Clear loading on error
           }
         });
+
+        setChannel(channelStream);
+
+        // Always trigger StartChat after channel is ready and listening
+        console.log('✅ Channel ready! Starting automation...');
+        await theaterClient.startChat(domainActorId);
+
+        setSetupStatus('ready');
+        console.log('✅ Chat session ready!');
 
         // Initial message will be handled by a separate useEffect
 
@@ -566,6 +571,7 @@ export async function renderApp(theaterClient: TheaterClient, domainActorId: str
         chatActorId={chatActorId}
         config={config}
         initialMessage={initialMessage || undefined}
+
       />
     );
 

@@ -337,7 +337,7 @@ async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
     log(`Creating Theater client for: ${options.server || '127.0.0.1:9000'}`);
     theaterClient = new TheaterClient(options.server || '127.0.0.1:9000');
 
-    // Start the chat session with domain actor pattern
+    // Start the chat session - actors only, no StartChat yet
     console.log('🚀 Starting chat session...');
     console.log('📋 Step 1: Starting domain actor...');
     
@@ -345,10 +345,12 @@ async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
     domainActorId = session.domainActorId;
     chatActorId = session.chatActorId;
     
-    console.log('✅ Chat session ready!');
-    log(`Chat session started - Domain: ${domainActorId}, Chat: ${chatActorId}`);
+    console.log('📋 Step 2: Setting up UI channel...');
+    console.log('🤖 Step 3: Starting chat automation...');
+    
+    log(`Chat session prepared - Domain: ${domainActorId}, Chat: ${chatActorId}`);
 
-    // Render the interactive UI
+    // Render the interactive UI - will handle StartChat after channel is ready
     log('Starting interactive UI...');
     await renderApp(theaterClient, domainActorId, chatActorId, config, options.message);
 
