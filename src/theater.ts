@@ -74,6 +74,11 @@ export class TheaterConnection extends EventEmitter {
   private socket: net.Socket | null = null;
   private dataBuffer: Buffer = Buffer.alloc(0);
   public connected: boolean = false;
+  
+  // Queue-based message handling
+  private messageQueue: TheaterResponse[] = [];
+  private messageWaiters: Array<(msg: TheaterResponse) => void> = [];
+  private messageListenerSetup = false;
 
   constructor(host: string, port: number) {
     super();
@@ -82,6 +87,29 @@ export class TheaterConnection extends EventEmitter {
 
     // Prevent EventTarget memory leak warnings
     this.setMaxListeners(20);
+    
+    // Set up persistent message listener
+    this.setupMessageListener();
+  }
+
+  private setupMessageListener(): void {
+    if (this.messageListenerSetup) return;
+    
+    this.messageListenerSetup = true;
+    
+    // Persistent listener that handles the queue
+    this.on('message', (message: TheaterResponse) => {
+      if (this.messageWaiters.length > 0) {
+        // Someone is waiting for a message, deliver immediately
+        log.debug(`[QUEUE] Delivering message immediately to waiter, ${this.messageWaiters.length - 1} waiters remaining`);
+        const waiter = this.messageWaiters.shift()!;
+        waiter(message);
+      } else {
+        // No one waiting, add to queue
+        log.debug(`[QUEUE] No waiters, queuing message. Queue size: ${this.messageQueue.length + 1}`);
+        this.messageQueue.push(message);
+      }
+    });
   }
 
   async connect(): Promise<void> {
@@ -194,6 +222,21 @@ export class TheaterConnection extends EventEmitter {
     this.socket.write(Buffer.concat([lengthPrefix, messageBytes]));
   }
 
+  async waitForMessage(): Promise<TheaterResponse> {
+    // Check queue first
+    if (this.messageQueue.length > 0) {
+      const message = this.messageQueue.shift()!;
+      log.debug(`[QUEUE] Retrieved queued message, ${this.messageQueue.length} remaining`);
+      return message;
+    }
+    
+    // No queued messages, wait for next one
+    log.debug('[QUEUE] No queued messages, waiting for next...');
+    return new Promise<TheaterResponse>((resolve) => {
+      this.messageWaiters.push(resolve);
+    });
+  }
+
   async receive(): Promise<TheaterResponse> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -203,14 +246,8 @@ export class TheaterConnection extends EventEmitter {
 
       const cleanup = () => {
         clearTimeout(timeout);
-        this.removeListener('message', onMessage);
         this.removeListener('error', onError);
         this.removeListener('disconnect', onDisconnect);
-      };
-
-      const onMessage = (message: TheaterResponse) => {
-        cleanup();
-        resolve(message);
       };
 
       const onError = (error: Error) => {
@@ -223,14 +260,31 @@ export class TheaterConnection extends EventEmitter {
         reject(new Error('Connection closed'));
       };
 
-      // Use once() instead of on() to automatically remove listeners after first event
-      this.once('message', onMessage);
+      // Set up error and disconnect listeners
       this.once('error', onError);
       this.once('disconnect', onDisconnect);
+      
+      // Use the queue-based waiting
+      this.waitForMessage().then((message) => {
+        cleanup();
+        resolve(message);
+      }).catch((error) => {
+        cleanup();
+        reject(error);
+      });
     });
   }
 
   close(): void {
+    this.connected = false;
+    
+    // Reject any pending waiters
+    this.messageWaiters.forEach(waiter => {
+      waiter(null as any); // This will cause an error for the waiter, which is appropriate
+    });
+    this.messageWaiters = [];
+    this.messageQueue = [];
+    
     if (this.socket) {
       this.socket.end();
     }
