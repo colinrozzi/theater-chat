@@ -1,5 +1,4 @@
 import { render, Box, Text, useInput, useApp } from 'ink';
-import { render, Box, Text, useInput, useApp } from 'ink';
 import MultiLineInput from './MultiLineInput.js';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
