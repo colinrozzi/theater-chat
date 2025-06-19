@@ -132,6 +132,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
 
         // Set up message handler BEFORE triggering StartChat
         channelStream.onMessage((message) => {
+          log.debug(`Received message: ${JSON.stringify(message, null, 2)}`);
           try {
             // Convert message bytes to string
             const messageText = Buffer.from(message.message).toString('utf8');
@@ -142,7 +143,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
             if (parsedMessage.type === 'chat_message' && parsedMessage.message) {
               // Check if this is a user message echo (confirmation)
               const isUserMessage = parsedMessage.message?.entry?.Message?.role === 'user';
-              
+
               // Debug specific to user messages
               if (isUserMessage) {
                 log.debug(`Found user message: ${JSON.stringify(parsedMessage.message?.entry?.Message?.content, null, 2)}`);
@@ -152,7 +153,7 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
                 // Extract the user message content
                 const userMessageContent = parsedMessage.message?.entry?.Message?.content;
                 let userText = '';
-                
+
                 if (Array.isArray(userMessageContent)) {
                   userText = userMessageContent
                     .filter((item: any) => item.type === 'text')
@@ -285,10 +286,10 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
 
         // Always trigger StartChat after channel is ready and listening
         log.info('Channel ready! Starting automation...');
-        
+
         // Add a small delay to ensure message handler is fully ready
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         await theaterClient.startChat(domainActorId);
 
         setSetupStatus('ready');

@@ -99,6 +99,7 @@ export class TheaterConnection extends EventEmitter {
       });
 
       this.socket.on('data', (data) => {
+        log.debug(`[TCP] Received data: ${data.length} bytes`);
         this.handleData(data);
       });
 
@@ -142,17 +143,21 @@ export class TheaterConnection extends EventEmitter {
           } else if (frameMessage.Fragment) {
             // FrameType::Fragment - for now, we don't expect large responses
             // In a full implementation, we'd reassemble fragments
+            log.warn('Received fragment message, but fragments are not yet supported');
             this.emit('error', new Error('Fragment messages not yet supported'));
             return;
           } else {
             // Unknown frame type
+            log.error(`Unknown frame type: ${JSON.stringify(frameMessage)}`);
             this.emit('error', new Error(`Unknown frame type: ${JSON.stringify(frameMessage)}`));
             return;
           }
 
           this.emit('message', actualMessage);
+          log.debug(`[EMIT] Emitted message: ${JSON.stringify(actualMessage)}`);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
+          log.error(`Failed to parse message: ${errorMessage}`);
           this.emit('error', new Error(`Failed to parse message: ${errorMessage}`));
         }
       } else {
@@ -539,15 +544,15 @@ export class TheaterClient {
             log.info('Channel closed');
             break;
           } else if ('Error' in message && message.Error) {
-            log(`Channel error: ${JSON.stringify(message.Error)}`, 'ERROR');
+            log.error(`Channel error: ${JSON.stringify(message.Error)}`);
             break;
           } else {
-            log(`Unknown message type: ${JSON.stringify(message)}`);
+            log.warn(`Unknown message type: ${JSON.stringify(message)}`);
           }
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        log(`Message listener error: ${errorMessage}`, 'ERROR');
+        log.error(`Message listener error: ${errorMessage}`);
       }
     };
 
@@ -556,11 +561,11 @@ export class TheaterClient {
       while (true) {
         try {
           await startMessageListener();
-          log('Message listener ended, restarting in 1 second...');
+          log.warn('Message listener ended, restarting in 1 second...');
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          log(`Failed to restart message listener: ${errorMessage}`, 'ERROR');
+          log.error(`Failed to restart message listener: ${errorMessage}`);
           break;
         }
       }
@@ -585,17 +590,17 @@ export class TheaterClient {
 
       // Add message handler
       onMessage(handler: ChannelMessageHandler): () => void {
-        log(`Adding message handler, total handlers: ${messageHandlers.size + 1}`);
+        log.debug(`Adding message handler, total handlers: ${messageHandlers.size + 1}`);
         messageHandlers.add(handler);
         return () => {
-          log(`Removing message handler, remaining: ${messageHandlers.size - 1}`);
+          log.debug(`Removing message handler, remaining: ${messageHandlers.size - 1}`);
           messageHandlers.delete(handler);
         };
       },
 
       // Send message on this channel
       async sendMessage(message: string): Promise<void> {
-        log(`Sending message: ${message}`);
+        log.info(`Sending message: ${message}`);
         const sendConnection = await self.createConnection();
         try {
           // First, send the AddMessage request

@@ -198,11 +198,11 @@ class ComponentLogger {
 export const logger = Logger.getInstance();
 
 // Helper function to initialize logger from CLI options
-export function initializeLogger(options: { verbose?: boolean; log?: boolean; debug?: boolean }): void {
+export function initializeLogger(options: { verbose: boolean; log: boolean; debug: boolean }): void {
   logger.initialize({
-    verbose: options.verbose || false,
-    fileLogging: options.log || options.verbose || false,
-    level: options.debug ? 'DEBUG' : options.verbose ? 'INFO' : 'WARN'
+    verbose: options.verbose || options.debug || false,
+    fileLogging: options.log || options.verbose || options.debug || false,
+    level: options.debug ? 'DEBUG' : (options.verbose || options.log) ? 'INFO' : 'WARN'
   });
 }
 

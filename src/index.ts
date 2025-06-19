@@ -25,6 +25,7 @@ program
   .option('-s, --server <address>', 'Theater server address', '127.0.0.1:9000')
   .option('-v, --verbose', 'Enable verbose logging to console and file')
   .option('--log', 'Enable file logging (quiet mode)')
+  .option('--debug', 'Enable debug level logging with detailed information')
   .option('-m, --message <text>', 'Send an initial message to start the conversation')
   .action(main); // Default action when no subcommand is provided
 
@@ -250,12 +251,12 @@ function resolveConfigPath(configInput: string): string {
   return `${configInput}.json`;
 }
 
-async function main(options: CLIOptions & { log?: boolean }): Promise<void> {
+async function main(options: CLIOptions & { log?: boolean; debug?: boolean }): Promise<void> {
   // Initialize the centralized logger first
   initializeLogger({
-    verbose: options.verbose,
-    log: options.log,
-    debug: process.env.NODE_ENV === 'development'
+    verbose: options.verbose || false,
+    log: options.log || false,
+    debug: options.debug || process.env.NODE_ENV === 'development' || false
   });
   let domainActorId: string | null = null;
   let chatActorId: string | null = null;
