@@ -139,20 +139,44 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
             if (parsedMessage.type === 'chat_message' && parsedMessage.message) {
               // Check if this is a user message echo (confirmation)
               const isUserMessage = parsedMessage.message?.entry?.Message?.role === 'user';
+              
+              // Debug specific to user messages
+              if (isUserMessage) {
+                console.log('DEBUG: Found user message:', JSON.stringify(parsedMessage.message?.entry?.Message?.content, null, 2));
+              }
 
               if (isUserMessage) {
-                // This is the echo of our user message - confirm the last pending user message
+                // Extract the user message content
+                const userMessageContent = parsedMessage.message?.entry?.Message?.content;
+                let userText = '';
+                
+                if (Array.isArray(userMessageContent)) {
+                  userText = userMessageContent
+                    .filter((item: any) => item.type === 'text')
+                    .map((item: any) => item.text)
+                    .join('');
+                } else if (typeof userMessageContent === 'string') {
+                  userText = userMessageContent;
+                }
+
+                // Check if this is the echo of our pending user message, or a new automated message
                 setMessages(prev => {
                   const lastUserIndex = prev.map((msg, i) => ({ ...msg, index: i }))
                     .reverse()
                     .find(msg => msg.role === 'user' && msg.status === 'pending')?.index;
 
                   if (lastUserIndex !== undefined) {
+                    // This is an echo of our pending user message - confirm it
                     return prev.map((msg, i) =>
                       i === lastUserIndex ? { ...msg, status: 'complete' } : msg
                     );
+                  } else {
+                    // This is a new user message from domain actor automation - add it
+                    if (userText.trim()) {
+                      return [...prev, { role: 'user', content: userText.trim(), status: 'complete' }];
+                    }
+                    return prev;
                   }
-                  return prev;
                 });
               } else {
                 // This is an assistant message
@@ -258,6 +282,10 @@ function ChatApp({ theaterClient, domainActorId, chatActorId, config, initialMes
 
         // Always trigger StartChat after channel is ready and listening
         console.log('✅ Channel ready! Starting automation...');
+        
+        // Add a small delay to ensure message handler is fully ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         await theaterClient.startChat(domainActorId);
 
         setSetupStatus('ready');
