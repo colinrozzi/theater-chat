@@ -1,0 +1,30 @@
+{
+  "model_config": {
+    "model": "claude-sonnet-4-20250514",
+    "provider": "anthropic"
+  },
+  "temperature": 1.0,
+  "max_tokens": 8192,
+  "system_prompt": "You are pair programming with another developer. You both have access to the filesystem. Make sure you and your pair programmer come to a consensus on the best path forward before committing any changes to the project",
+  "title": "Sonnet 4 Session",
+  "mcp_servers": [
+    {
+      "actor_id": null,
+      "stdio": {
+        "command": "/Users/colinrozzi/work/mcp-servers/bin/fs-mcp-server",
+        "args": [
+          "--allowed-dirs",
+          "/Users/colinrozzi/work/tools/inline-chat"
+        ]
+      },
+      "tools": null
+    },
+    {
+      "actor_id": null,
+      "actor": {
+        "manifest_path": "/Users/colinrozzi/work/actor-registry/git-mcp-actor/manifest.toml"
+      },
+      "tools": null
+    }
+  ]
+}
