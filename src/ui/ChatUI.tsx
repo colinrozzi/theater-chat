@@ -88,6 +88,7 @@ function MultiLineInputWithModes({
         cursorPosition={cursorPosition}
         onContentChange={setContent}
         onCursorChange={setCursorPosition}
+        verbose={verbose}
       />
 
       {/* Mode help text */}
@@ -358,6 +359,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
     }
   }, [channel, client, session, addMessage, isGenerating, actorHasExited]);
 
+  /*
   // Use keyboard shortcuts
   useKeyboardShortcuts({
     shortcuts: [
@@ -378,6 +380,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
       }
     ]
   });
+  */
 
   // Cleanup on unmount
   useEffect(() => {
