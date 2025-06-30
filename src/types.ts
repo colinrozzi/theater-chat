@@ -49,6 +49,7 @@ export interface CLIOptions {
   directory?: string;
   server?: string;
   mode?: ExecutionMode;
+  message?: string;
   verbose?: boolean;
   help?: boolean;
 }
