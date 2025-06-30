@@ -49,10 +49,13 @@ function LoadingIndicator() {
 function MultiLineInputWithModes({
   placeholder,
   onSubmit,
+  disabled,
+  verbose,
 }: {
   placeholder: string;
   onSubmit: (content: string) => void;
   disabled: boolean;
+  verbose: boolean;
 }) {
   const [content, setContent] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -63,6 +66,9 @@ function MultiLineInputWithModes({
   }, []);
 
   const handleSubmit = useCallback((submittedContent: string) => {
+    if (verbose) {
+      console.log(`Submitting content: "${submittedContent}"`);
+    }
     onSubmit(submittedContent);
     // Reset state after submit
     setContent('');
@@ -75,7 +81,7 @@ function MultiLineInputWithModes({
       <MultiLineInput
         placeholder={placeholder}
         onSubmit={handleSubmit}
-        disabled={false}
+        disabled={disabled}
         mode={mode}
         onModeChange={handleModeChange}
         content={content}
@@ -102,7 +108,7 @@ function MultiLineInputWithModes({
  * Main Git Chat application with simplified message handling
  */
 function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
-  const { isRawModeSupported } = useStdin();
+  const { isRawModeSupported, setRawMode, stdin } = useStdin();
 
   // Check for raw mode support
   if (!isRawModeSupported) {
@@ -124,6 +130,19 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
   const [toolDisplayMode, setToolDisplayMode] = useState<ToolDisplayMode>('minimal');
   const [showHelp, setShowHelp] = useState<boolean>(false);
   const [actorHasExited, setActorHasExited] = useState<boolean>(false);
+
+  // Enable raw mode for input capture
+  useEffect(() => {
+    if (isRawModeSupported) {
+      setRawMode(true);
+      return () => {
+        setRawMode(false);
+      };
+    }
+    // Return undefined cleanup function for when raw mode is not supported
+    console.warn('Raw mode is not supported in this terminal environment.');
+    return undefined;
+  }, [isRawModeSupported, setRawMode]);
 
 
   // Use simplified message state management
@@ -442,6 +461,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
                 }
                 onSubmit={sendMessage}
                 disabled={isGenerating || actorHasExited}
+                verbose={options.verbose || false}
               />
             </Box>
           </Box>
