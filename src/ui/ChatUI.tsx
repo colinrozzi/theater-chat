@@ -434,20 +434,18 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
           </Box>
 
           {/* Conditional input rendering based on mode */}
-          {showHelp && (
-            <Box width="100%" paddingLeft={1} paddingRight={1} paddingBottom={1}>
-              <Box width="100%">
-                <MultiLineInputWithModes
-                  placeholder={
-                    actorHasExited ? "Assistant has shut down" :
-                      isGenerating ? "Processing..." : "Message: "
-                  }
-                  onSubmit={sendMessage}
-                  disabled={isGenerating || actorHasExited}
-                />
-              </Box>
+          <Box width="100%" paddingLeft={1} paddingRight={1} paddingBottom={1}>
+            <Box width="100%">
+              <MultiLineInputWithModes
+                placeholder={
+                  actorHasExited ? "Assistant has shut down" :
+                    isGenerating ? "Processing..." : "Message: "
+                }
+                onSubmit={sendMessage}
+                disabled={isGenerating || actorHasExited}
+              />
             </Box>
-          )}
+          </Box>
 
           {!actorHasExited && (
             <Box paddingLeft={1} >
