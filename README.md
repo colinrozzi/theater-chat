@@ -97,9 +97,7 @@ The configuration file should be a JSON file that specifies the actor and its co
 - `config.title` - Display title for the chat session
 - `config.mcp_servers` - Array of MCP server configurations for tool access
 
-### Backward Compatibility
 
-The old configuration format (without `actor` and `config` wrappers) is still supported and will be automatically converted to use a default actor manifest path.
 
 ## Examples
 
