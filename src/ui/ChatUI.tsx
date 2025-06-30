@@ -7,7 +7,6 @@ import Spinner from 'ink-spinner';
 import { useState, useEffect, useCallback } from 'react';
 import {
   MessageComponent,
-  SmartInput,
   HelpPanel,
   useMessageState,
   useKeyboardShortcuts,
@@ -17,20 +16,17 @@ import {
   MultiLineInput
 } from 'terminal-chat-ui';
 
-import type { GitRepository, GitWorkflow, ChatSession, ExecutionMode, CLIOptions, GitAgentConfig } from '../types.js';
-import { GitAgentClient, type ActorLifecycleCallbacks } from '../theater-client.js';
+import type { ChatSession, CLIOptions, ChatConfig, } from '../types.js';
+import { TheaterChatClient, type ActorLifecycleCallbacks } from '../theater-client.js';
 import { formatActorError } from '../error-parser.js';
 import type { ChannelStream } from 'theater-client';
 
-interface GitChatAppProps {
+interface ChatAppProps {
   options: {
     server?: string;
     verbose?: boolean;
   };
-  config: GitAgentConfig;
-  repoPath: string;
-  workflow: GitWorkflow;
-  mode: ExecutionMode;
+  config: ChatConfig;
   onCleanupReady?: (cleanup: () => Promise<void>) => void;
 }
 
@@ -106,7 +102,7 @@ function MultiLineInputWithModes({
 /**
  * Main Git Chat application with simplified message handling
  */
-function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady }: GitChatAppProps) {
+function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
   const { isRawModeSupported } = useStdin();
 
   // Check for raw mode support
@@ -120,9 +116,7 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
     );
   }
 
-  const [workflowCompleted, setWorkflowCompleted] = useState<boolean>(false);
-  const [currentMode, setCurrentMode] = useState<ExecutionMode>(mode);
-  const [client, setClient] = useState<GitAgentClient | null>(null);
+  const [client, setClient] = useState<TheaterChatClient | null>(null);
   const [session, setSession] = useState<ChatSession | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [channel, setChannel] = useState<ChannelStream | null>(null);
@@ -186,7 +180,7 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
         setSetupStatus('connecting');
         setSetupMessage('Connecting to Theater...');
 
-        const client = new GitAgentClient(options.server || '127.0.0.1:9000', options.verbose || false);
+        const client = new TheaterChatClient(options.server || '127.0.0.1:9000', options.verbose || false);
         setClient(client);
 
         setSetupStatus('starting_actor');
@@ -199,15 +193,8 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
             setActorHasExited(true);
             setIsGenerating(false);
 
-            // Check if this was a successful workflow completion
-            const isSuccess = result?.Success !== undefined;
-            if (isSuccess && mode === 'task') {
-              // For workflow mode, just mark as completed without the "shut down" message
-              setWorkflowCompleted(true);
-            } else {
-              // For other cases or chat mode, show the shutdown message
-              addMessage('system', 'Git assistant has shut down.');
-            }
+            // For other cases or chat mode, show the shutdown message
+            addMessage('system', 'Git assistant has shut down.');
 
             // Trigger app shutdown
             setTimeout(async () => {
@@ -262,7 +249,7 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
         const channelStream = await client.openChannelStream(session.chatActorId);
 
         setSetupStatus('loading_actor');
-        setSetupMessage(`Starting ${workflow} workflow...`);
+        setSetupMessage('Loading chat actor...');
 
         // Set up simplified message handler
         channelStream.onMessage((message) => {
@@ -321,11 +308,6 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
 
         setChannel(channelStream);
 
-        // Start git workflow
-        //setIsGenerating(true);
-        if (mode === 'task') {
-          setIsGenerating(true);
-        }
         await client.startGitWorkflow(session.domainActor);
 
         setSetupStatus('ready');
@@ -339,7 +321,7 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
     }
 
     setupChannel();
-  }, [workflow, addMessage, addToolMessage]);
+  }, [addMessage, addToolMessage]);
 
   // Send message function
   const sendMessage = useCallback(async (messageText: string) => {
@@ -367,15 +349,6 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
       }),
       commonShortcuts.clear(clearMessages),
       commonShortcuts.toggleHelp(() => setShowHelp(!showHelp)),
-      {
-        key: 'i',
-        description: 'Switch to interactive mode',
-        action: () => {
-          if (currentMode === 'task') {
-            setCurrentMode('interactive');
-          }
-        }
-      },
       {
         key: 't',
         ctrl: true,
@@ -434,7 +407,7 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
           <Box flexDirection="column" width="100%" paddingLeft={1} paddingRight={1} marginTop={1}>
             {messages.length === 0 && !isGenerating ? (
               <Text color="gray" dimColor>
-                [git] Ready for {workflow} workflow. Type your questions or let me analyze the repository.
+                Hello this is a placeholder
               </Text>
             ) : (
               <>
@@ -461,7 +434,7 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
           </Box>
 
           {/* Conditional input rendering based on mode */}
-          {(currentMode === 'interactive' || showHelp) && (
+          {showHelp && (
             <Box width="100%" paddingLeft={1} paddingRight={1} paddingBottom={1}>
               <Box width="100%">
                 <MultiLineInputWithModes
@@ -476,26 +449,10 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
             </Box>
           )}
 
-          {currentMode === 'interactive' && !actorHasExited && (
+          {!actorHasExited && (
             <Box paddingLeft={1} >
               <Text color="green" dimColor>
                 Interactive mode • Chat with git assistant
-              </Text>
-            </Box>
-          )}
-
-          {currentMode === 'task' && !workflowCompleted && !actorHasExited && (
-            <Box paddingLeft={1} >
-              <Text color="yellow" dimColor>
-                Task in progress
-              </Text>
-            </Box>
-          )}
-
-          {currentMode === 'task' && (workflowCompleted || actorHasExited) && (
-            <Box paddingLeft={1} >
-              <Text color="green">
-                ✓ Task complete • Cleaning up...
               </Text>
             </Box>
           )}
@@ -508,12 +465,9 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
 /**
  * Render the Git Chat app with proper cleanup handling
  */
-export async function renderGitChatApp(
+export async function renderChatApp(
   options: CLIOptions,
-  config: GitAgentConfig,
-  repoPath: string,
-  workflow: GitWorkflow,
-  mode: ExecutionMode
+  config: ChatConfig
 ): Promise<void> {
   let app: any = null;
   let appCleanup: (() => Promise<void>) | null = null;
@@ -567,12 +521,9 @@ export async function renderGitChatApp(
     setupSignalHandlers();
 
     app = render(
-      <GitChatApp
+      <ChatApp
         options={options}
         config={config}
-        repoPath={repoPath}
-        workflow={workflow}
-        mode={mode}
         onCleanupReady={(cleanupFn) => {
           appCleanup = cleanupFn;
           if (options.verbose) {
