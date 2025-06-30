@@ -98,16 +98,20 @@ export function formatActorError(error: any): string {
     const errorKeys = Object.keys(error);
     if (errorKeys.length === 1) {
       const errorType = errorKeys[0];
-      const errorPayload = error[errorType];
-      if (typeof errorPayload === 'object' && errorPayload !== null && 'data' in errorPayload) {
-        return formatWitActorError(errorType, errorPayload.data);
+      if (errorType && error[errorType as keyof typeof error]) {
+        const errorPayload = error[errorType as keyof typeof error];
+        if (typeof errorPayload === 'object' && errorPayload !== null && 'data' in errorPayload) {
+          return formatWitActorError(errorType, errorPayload.data);
+        }
       }
     }
 
     // Handle {"error_type": "...", "data": [...]} structure
     if ('error_type' in error) {
       const witError = error as WitActorError;
-      return formatWitActorError(witError.error_type, witError.data);
+      if (witError.error_type && witError.data) {
+        return formatWitActorError(witError.error_type, witError.data);
+      }
     }
   }
 
