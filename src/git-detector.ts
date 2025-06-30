@@ -5,7 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import type { GitRepository, GitWorkflow, GitAgentConfig, ExecutionMode } from './types.js';
+import type { GitRepository, GitWorkflow, GitAgentConfig, ExecutionMode, TaskManagerInitialState } from './types.js';
 
 /**
  * Detect git repository by walking up directory tree
@@ -96,26 +96,32 @@ export function buildGitConfig(workflow: GitWorkflow, repoPath: string, mode: Ex
   const systemPrompt = buildGitSystemPrompt(workflow, repoPath);
   const initialMessage = getWorkflowInitialMessage(workflow);
 
+  const initialState: TaskManagerInitialState = {
+    system_prompt: systemPrompt,
+    model_config: workflowConfig.model_config,
+    temperature: workflowConfig.temperature,
+    max_tokens: workflowConfig.max_tokens,
+    mcp_servers: [
+      {
+        actor_id: null,
+        actor: {
+          manifest_path: "https://github.com/colinrozzi/git-mcp-actor/releases/latest/download/manifest.toml"
+        },
+        tools: null
+      }
+    ],
+    auto_exit_on_completion: mode === 'task'
+  };
+
+  // Only add initial_message if it's defined
+  if (initialMessage) {
+    initialState.initial_message = initialMessage;
+  }
+
   return {
     actor: {
       manifest_path: "/Users/colinrozzi/work/actor-registry/task-manager/manifest.toml",
-      initial_state: {
-        system_prompt: systemPrompt,
-        initial_message: initialMessage,
-        model_config: workflowConfig.model_config,
-        temperature: workflowConfig.temperature,
-        max_tokens: workflowConfig.max_tokens,
-        mcp_servers: [
-          {
-            actor_id: null,
-            actor: {
-              manifest_path: "https://github.com/colinrozzi/git-mcp-actor/releases/latest/download/manifest.toml"
-            },
-            tools: null
-          }
-        ],
-        auto_exit_on_completion: mode === 'task'
-      }
+      initial_state: initialState
     },
     mode: mode
   };
