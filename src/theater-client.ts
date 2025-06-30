@@ -3,7 +3,7 @@
  */
 
 import { TheaterClient, Actor, ChannelStream, setLogLevel } from 'theater-client';
-import type { GitAgentConfig, ChatSession } from './types.js';
+import type { ChatConfig, ChatSession } from './types.js';
 
 // New type for actor lifecycle callbacks
 export interface ActorLifecycleCallbacks {
@@ -12,7 +12,7 @@ export interface ActorLifecycleCallbacks {
   onActorEvent?: (event: any) => void;
 }
 
-export class GitAgentClient {
+export class TheaterChatClient {
   private client: TheaterClient;
 
   constructor(serverAddress: string, verbose: boolean = false) {
@@ -84,11 +84,7 @@ export class GitAgentClient {
     return response.actor_id;
   }
 
-  /**
-   * Start a git workflow session using task-manager with lifecycle callbacks
-   */
-  async startGitSession(config: GitAgentConfig, callbacks?: ActorLifecycleCallbacks): Promise<ChatSession> {
-    // Start task-manager actor
+  async startSession(config: ChatConfig, callbacks?: ActorLifecycleCallbacks): Promise<ChatSession> {
     const taskManagerActor = await this.client.startActor({
       manifest: config.actor.manifest_path,
       initialState: new TextEncoder().encode(JSON.stringify(config.actor.initial_state)),

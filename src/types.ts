@@ -14,15 +14,14 @@ export type {
 export type GitWorkflow = 'commit' | 'review' | 'rebase' | 'chat';
 export type ExecutionMode = 'task' | 'interactive';
 
-export interface GitAgentConfig {
+export interface ChatConfig {
   actor: {
     manifest_path: string;
-    initial_state?: TaskManagerInitialState;
+    initial_state?: ChatProxyInitialState;
   };
-  mode: ExecutionMode;
 }
 
-export interface TaskManagerInitialState {
+export interface ChatProxyInitialState {
   // Core task definition
   system_prompt?: string;
   initial_message?: string;
@@ -44,27 +43,6 @@ export interface TaskManagerInitialState {
     };
     tools?: any;
   }>;
-
-  // Execution mode
-  auto_exit_on_completion?: boolean;
-}
-
-// Legacy type alias for compatibility
-export interface GitAssistantInitialState extends TaskManagerInitialState {
-  current_directory?: string;
-  task?: GitWorkflow;
-  title?: string;
-  description?: string;
-}
-
-export interface GitRepository {
-  path: string;
-  isClean: boolean;
-  currentBranch: string;
-  hasUncommittedChanges: boolean;
-  modifiedFiles: string[];
-  untrackedFiles: string[];
-  stagedFiles: string[];
 }
 
 export interface CLIOptions {
