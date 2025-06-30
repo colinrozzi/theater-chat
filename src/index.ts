@@ -19,35 +19,22 @@ import type { CLIOptions, ChatConfig, ChatProxyInitialState, ConfigFile } from '
 const RESERVED_COMMANDS = ['list', 'init'];
 
 /**
- * Convert old config format to new ChatConfig format with backward compatibility
+ * Convert config file to ChatConfig format
  */
 function convertToNewConfigFormat(loadedConfig: ConfigFile): ChatConfig {
-  // Check if it's already in new format (has 'actor' and 'config' keys)
-  if (loadedConfig.actor && loadedConfig.config) {
-    return {
-      actor: {
-        manifest_path: loadedConfig.actor.manifest_path,
-        initial_state: loadedConfig.config
-      }
-    };
+  // Validate that it's in the required new format
+  if (!loadedConfig.actor || !loadedConfig.config) {
+    throw new Error('Configuration must include both "actor" and "config" sections. Please update your config to the new format.');
   }
   
-  // Check if it's in new format but missing 'config' wrapper (has 'actor' key directly)
-  if (loadedConfig.actor && !loadedConfig.config) {
-    const { actor, ...configFields } = loadedConfig;
-    return {
-      actor: {
-        manifest_path: actor.manifest_path,
-        initial_state: configFields as ChatProxyInitialState
-      }
-    };
+  if (!loadedConfig.actor.manifest_path) {
+    throw new Error('Configuration must specify "actor.manifest_path".');
   }
   
-  // Old format - wrap it in new structure with default manifest path
   return {
     actor: {
-      manifest_path: '/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml',
-      initial_state: loadedConfig as ChatProxyInitialState
+      manifest_path: loadedConfig.actor.manifest_path,
+      initial_state: loadedConfig.config
     }
   };
 }
