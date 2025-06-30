@@ -13,10 +13,44 @@ import { program } from 'commander';
 import chalk from 'chalk';
 import { renderChatApp } from './ui/ChatUI.js';
 import { resolveConfigPath, listConfigs, initConfigs } from './config-resolver.js';
-import type { CLIOptions, ChatConfig } from './types.js';
+import type { CLIOptions, ChatConfig, ChatProxyInitialState, ConfigFile } from './types.js';
 
 // Reserved command words that should not be treated as config names
 const RESERVED_COMMANDS = ['list', 'init'];
+
+/**
+ * Convert old config format to new ChatConfig format with backward compatibility
+ */
+function convertToNewConfigFormat(loadedConfig: ConfigFile): ChatConfig {
+  // Check if it's already in new format (has 'actor' and 'config' keys)
+  if (loadedConfig.actor && loadedConfig.config) {
+    return {
+      actor: {
+        manifest_path: loadedConfig.actor.manifest_path,
+        initial_state: loadedConfig.config
+      }
+    };
+  }
+  
+  // Check if it's in new format but missing 'config' wrapper (has 'actor' key directly)
+  if (loadedConfig.actor && !loadedConfig.config) {
+    const { actor, ...configFields } = loadedConfig;
+    return {
+      actor: {
+        manifest_path: actor.manifest_path,
+        initial_state: configFields as ChatProxyInitialState
+      }
+    };
+  }
+  
+  // Old format - wrap it in new structure with default manifest path
+  return {
+    actor: {
+      manifest_path: '/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml',
+      initial_state: loadedConfig as ChatProxyInitialState
+    }
+  };
+}
 
 // Main program setup
 program
@@ -155,13 +189,8 @@ async function handleChatCommand(configName: string, options: CLIOptions): Promi
     console.log(chalk.gray(`   Path: ${resolved.path}`));
     console.log();
 
-    // Convert old config format to new ChatConfig format
-    const chatConfig: ChatConfig = {
-      actor: {
-        manifest_path: '/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml',
-        initial_state: resolved.config
-      }
-    };
+    // Handle both old and new config formats
+    const chatConfig: ChatConfig = convertToNewConfigFormat(resolved.config);
 
     // Add initial message if provided
     if (options.message) {
