@@ -442,7 +442,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
                     prefixOverrides={{
                       user: '',
                       assistant: '',
-                      system: '[git] ',
+                      system: '[system] ',
                       tool: '[tool] '
                     }}
                   />
@@ -468,14 +468,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
               />
             </Box>
           </Box>
-
-          {!actorHasExited && (
-            <Box paddingLeft={1} >
-              <Text color="green" dimColor>
-                Interactive mode • Chat with git assistant
-              </Text>
-            </Box>
-          )}
         </>
       )}
     </Box>
