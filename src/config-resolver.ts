@@ -1,0 +1,188 @@
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { homedir } from 'os';
+import chalk from 'chalk';
+
+export interface ResolvedConfig {
+  config: any;
+  source: 'local' | 'global';
+  path: string;
+}
+
+export interface ConfigInfo {
+  name: string;
+  path: string;
+  source: 'local' | 'global';
+  exists: boolean;
+}
+
+/**
+ * Get XDG config directory or fallback to ~/.config
+ */
+function getConfigHome(): string {
+  return process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+}
+
+/**
+ * Get the global config directory
+ */
+function getGlobalConfigDir(): string {
+  return join(getConfigHome(), 'theater-chat');
+}
+
+/**
+ * Get the local config directory for current working directory
+ */
+function getLocalConfigDir(): string {
+  return join(process.cwd(), '.theater-chat');
+}
+
+/**
+ * Resolve a config name to a file path, checking local first, then global
+ */
+export function resolveConfigPath(configName: string): ResolvedConfig | null {
+  const localDir = getLocalConfigDir();
+  const globalDir = getGlobalConfigDir();
+  
+  // Add .json extension if not present
+  const fileName = configName.endsWith('.json') ? configName : `${configName}.json`;
+  
+  // Check local first
+  const localPath = join(localDir, fileName);
+  if (existsSync(localPath)) {
+    try {
+      const config = JSON.parse(readFileSync(localPath, 'utf8'));
+      return { config, source: 'local', path: localPath };
+    } catch (error) {
+      console.error(chalk.red(`Error parsing local config ${localPath}: ${error}`));
+      return null;
+    }
+  }
+  
+  // Check global
+  const globalPath = join(globalDir, fileName);
+  if (existsSync(globalPath)) {
+    try {
+      const config = JSON.parse(readFileSync(globalPath, 'utf8'));
+      return { config, source: 'global', path: globalPath };
+    } catch (error) {
+      console.error(chalk.red(`Error parsing global config ${globalPath}: ${error}`));
+      return null;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Get all available configs (local and global)
+ */
+export function listConfigs(): ConfigInfo[] {
+  const configs: ConfigInfo[] = [];
+  const localDir = getLocalConfigDir();
+  const globalDir = getGlobalConfigDir();
+  
+  // Collect all unique config names
+  const configNames = new Set<string>();
+  
+  // Scan local configs
+  if (existsSync(localDir)) {
+    scanDirectory(localDir, '', configNames);
+  }
+  
+  // Scan global configs
+  if (existsSync(globalDir)) {
+    scanDirectory(globalDir, '', configNames);
+  }
+  
+  // Create ConfigInfo for each unique config
+  for (const name of Array.from(configNames).sort()) {
+    const localPath = join(localDir, `${name}.json`);
+    const globalPath = join(globalDir, `${name}.json`);
+    
+    if (existsSync(localPath)) {
+      configs.push({
+        name,
+        path: localPath,
+        source: 'local',
+        exists: true
+      });
+    } else if (existsSync(globalPath)) {
+      configs.push({
+        name,
+        path: globalPath,
+        source: 'global',
+        exists: true
+      });
+    }
+  }
+  
+  return configs;
+}
+
+/**
+ * Recursively scan directory for JSON configs
+ */
+function scanDirectory(dir: string, prefix: string, configNames: Set<string>) {
+  if (!existsSync(dir)) return;
+  
+  try {
+    const items = require('fs').readdirSync(dir, { withFileTypes: true });
+    
+    for (const item of items) {
+      if (item.isDirectory()) {
+        const subPrefix = prefix ? `${prefix}/${item.name}` : item.name;
+        scanDirectory(join(dir, item.name), subPrefix, configNames);
+      } else if (item.name.endsWith('.json')) {
+        const configName = prefix 
+          ? `${prefix}/${item.name.replace('.json', '')}`
+          : item.name.replace('.json', '');
+        configNames.add(configName);
+      }
+    }
+  } catch (error) {
+    // Ignore errors scanning directories
+  }
+}
+
+/**
+ * Initialize config directories with default configs
+ */
+export function initConfigs(target: 'local' | 'global' | 'both' = 'local'): void {
+  const defaultSonnetConfig = {
+    model_config: {
+      model: "claude-sonnet-4-20250514",
+      provider: "anthropic"
+    },
+    temperature: 1,
+    max_tokens: 8192,
+    system_prompt: "You are a helpful assistant.",
+    title: "Sonnet Chat"
+  };
+
+  if (target === 'local' || target === 'both') {
+    const localDir = getLocalConfigDir();
+    mkdirSync(localDir, { recursive: true });
+    
+    const sonnetPath = join(localDir, 'sonnet.json');
+    if (!existsSync(sonnetPath)) {
+      writeFileSync(sonnetPath, JSON.stringify(defaultSonnetConfig, null, 2));
+      console.log(chalk.green(`✓ Created local config: ${sonnetPath}`));
+    } else {
+      console.log(chalk.yellow(`⚠ Local config already exists: ${sonnetPath}`));
+    }
+  }
+
+  if (target === 'global' || target === 'both') {
+    const globalDir = getGlobalConfigDir();
+    mkdirSync(globalDir, { recursive: true });
+    
+    const sonnetPath = join(globalDir, 'sonnet.json');
+    if (!existsSync(sonnetPath)) {
+      writeFileSync(sonnetPath, JSON.stringify(defaultSonnetConfig, null, 2));
+      console.log(chalk.green(`✓ Created global config: ${sonnetPath}`));
+    } else {
+      console.log(chalk.yellow(`⚠ Global config already exists: ${sonnetPath}`));
+    }
+  }
+}
