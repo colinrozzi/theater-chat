@@ -343,7 +343,7 @@ function GitChatApp({ options, config, repoPath, workflow, mode, onCleanupReady 
 
   // Send message function
   const sendMessage = useCallback(async (messageText: string) => {
-    if (!channel || !messageText.trim() || isGenerating || actorHasExited) return;
+    if (!client || !session || !channel || !messageText.trim() || isGenerating || actorHasExited) return;
 
     try {
       setIsGenerating(true);
