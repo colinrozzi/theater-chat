@@ -21,6 +21,26 @@ export interface ChatConfig {
   };
 }
 
+// Support for new config format - either old format or new wrapped format
+export interface ConfigFile {
+  // New format
+  actor?: {
+    manifest_path: string;
+  };
+  config?: ChatProxyInitialState;
+  
+  // Old format (for backward compatibility) - any ChatProxyInitialState fields directly
+  model_config?: {
+    model: string;
+    provider: string;
+  };
+  temperature?: number;
+  max_tokens?: number;
+  system_prompt?: string;
+  title?: string;
+  mcp_servers?: Array<any>;
+}
+
 export interface ChatProxyInitialState {
   // Core task definition
   system_prompt?: string;
