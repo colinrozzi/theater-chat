@@ -150,14 +150,20 @@ function scanDirectory(dir: string, prefix: string, configNames: Set<string>) {
  */
 export function initConfigs(target: 'local' | 'global' | 'both' = 'local'): void {
   const defaultSonnetConfig = {
-    model_config: {
-      model: "claude-sonnet-4-20250514",
-      provider: "anthropic"
+    actor: {
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
     },
-    temperature: 1,
-    max_tokens: 8192,
-    system_prompt: "You are a helpful assistant.",
-    title: "Sonnet Chat"
+    config: {
+      model_config: {
+        model: "claude-sonnet-4-20250514",
+        provider: "anthropic"
+      },
+      temperature: 1,
+      max_tokens: 8192,
+      system_prompt: "You are a helpful assistant.",
+      title: "Sonnet Chat",
+      mcp_servers: []
+    }
   };
 
   if (target === 'local' || target === 'both') {
