@@ -9,8 +9,6 @@ import {
   MessageComponent,
   HelpPanel,
   useMessageState,
-  useKeyboardShortcuts,
-  commonShortcuts,
   type ToolDisplayMode,
   type SetupStatus,
   MultiLineInput
@@ -358,29 +356,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
       setIsGenerating(false);
     }
   }, [channel, client, session, addMessage, isGenerating, actorHasExited]);
-
-  /*
-  // Use keyboard shortcuts
-  useKeyboardShortcuts({
-    shortcuts: [
-      commonShortcuts.exit(async () => {
-        await cleanup();
-        process.exit(0);
-      }),
-      commonShortcuts.clear(clearMessages),
-      commonShortcuts.toggleHelp(() => setShowHelp(!showHelp)),
-      {
-        key: 't',
-        ctrl: true,
-        description: 'Toggle tool display',
-        action: () => setToolDisplayMode(prev =>
-          prev === 'hidden' ? 'minimal' :
-            prev === 'minimal' ? 'full' : 'hidden'
-        )
-      }
-    ]
-  });
-  */
 
   // Cleanup on unmount
   useEffect(() => {
