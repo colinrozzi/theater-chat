@@ -53,43 +53,53 @@ bun src/index.js --config ./example-config.json
 
 ## Configuration Format
 
-The configuration file should be a JSON file that defines the chat-state actor configuration:
+The configuration file should be a JSON file that specifies the actor and its configuration:
 
 ```json
 {
-  "model_config": {
-    "model": "claude-sonnet-4-20250514",
-    "provider": "anthropic"
+  "actor": {
+    "manifest_path": "/path/to/chat-proxy-actor/manifest.toml"
   },
-  "temperature": 1.0,
-  "max_tokens": 8192,
-  "system_prompt": "You are a helpful assistant...",
-  "title": "My Chat Session",
-  "mcp_servers": [
-    {
-      "actor_id": null,
-      "stdio": {
-        "command": "/path/to/mcp-server",
-        "args": ["--arg1", "value1"]
-      },
-      "tools": null
-    }
-  ]
+  "config": {
+    "model_config": {
+      "model": "claude-sonnet-4-20250514",
+      "provider": "anthropic"
+    },
+    "temperature": 1.0,
+    "max_tokens": 8192,
+    "system_prompt": "You are a helpful assistant...",
+    "title": "My Chat Session",
+    "mcp_servers": [
+      {
+        "actor_id": null,
+        "stdio": {
+          "command": "/path/to/mcp-server",
+          "args": ["--arg1", "value1"]
+        },
+        "tools": null
+      }
+    ]
+  }
 }
 ```
 
 ### Required Fields
 
-- `model_config.model` - The model to use (e.g., "claude-sonnet-4-20250514")
-- `model_config.provider` - The provider (e.g., "anthropic", "openai", "google")
+- `actor.manifest_path` - Path to the Theater actor manifest file
+- `config.model_config.model` - The model to use (e.g., "claude-sonnet-4-20250514")
+- `config.model_config.provider` - The provider (e.g., "anthropic", "openai", "google")
 
 ### Optional Fields
 
-- `temperature` - Sampling temperature (0-2, default varies by model)
-- `max_tokens` - Maximum tokens in response
-- `system_prompt` - System prompt to set context
-- `title` - Display title for the chat session
-- `mcp_servers` - Array of MCP server configurations for tool access
+- `config.temperature` - Sampling temperature (0-2, default varies by model)
+- `config.max_tokens` - Maximum tokens in response
+- `config.system_prompt` - System prompt to set context
+- `config.title` - Display title for the chat session
+- `config.mcp_servers` - Array of MCP server configurations for tool access
+
+### Backward Compatibility
+
+The old configuration format (without `actor` and `config` wrappers) is still supported and will be automatically converted to use a default actor manifest path.
 
 ## Examples
 
@@ -97,12 +107,18 @@ The configuration file should be a JSON file that defines the chat-state actor c
 
 ```json
 {
-  "model_config": {
-    "model": "claude-sonnet-4-20250514",
-    "provider": "anthropic"
+  "actor": {
+    "manifest_path": "/path/to/chat-proxy-actor/manifest.toml"
   },
-  "title": "General Chat",
-  "system_prompt": "You are a helpful assistant."
+  "config": {
+    "model_config": {
+      "model": "claude-sonnet-4-20250514",
+      "provider": "anthropic"
+    },
+    "title": "General Chat",
+    "system_prompt": "You are a helpful assistant.",
+    "mcp_servers": []
+  }
 }
 ```
 
@@ -110,20 +126,25 @@ The configuration file should be a JSON file that defines the chat-state actor c
 
 ```json
 {
-  "model_config": {
-    "model": "claude-sonnet-4-20250514",
-    "provider": "anthropic"
+  "actor": {
+    "manifest_path": "/path/to/chat-proxy-actor/manifest.toml"
   },
-  "title": "Programming Assistant",
-  "system_prompt": "You are a pair programming assistant with filesystem access.",
-  "mcp_servers": [
-    {
-      "stdio": {
-        "command": "/path/to/fs-mcp-server",
-        "args": ["--allowed-dirs", "/path/to/project"]
+  "config": {
+    "model_config": {
+      "model": "claude-sonnet-4-20250514",
+      "provider": "anthropic"
+    },
+    "title": "Programming Assistant",
+    "system_prompt": "You are a pair programming assistant with filesystem access.",
+    "mcp_servers": [
+      {
+        "stdio": {
+          "command": "/path/to/fs-mcp-server",
+          "args": ["--allowed-dirs", "/path/to/project"]
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
@@ -207,7 +228,7 @@ Check out `example-config.json` for a complete example configuration.
 
 ### Model Options
 
-Different models you can use:
+Different models you can use in the `config.model_config` section:
 
 ```json
 // Claude Sonnet 4
