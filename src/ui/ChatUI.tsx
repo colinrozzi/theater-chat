@@ -49,7 +49,6 @@ function LoadingIndicator() {
 function MultiLineInputWithModes({
   placeholder,
   onSubmit,
-  disabled
 }: {
   placeholder: string;
   onSubmit: (content: string) => void;
@@ -76,7 +75,7 @@ function MultiLineInputWithModes({
       <MultiLineInput
         placeholder={placeholder}
         onSubmit={handleSubmit}
-        disabled={disabled}
+        disabled={false}
         mode={mode}
         onModeChange={handleModeChange}
         content={content}
