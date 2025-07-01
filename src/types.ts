@@ -9,23 +9,26 @@ export type {
   ToolDisplayMode,
   ChatSession
 } from 'terminal-chat-ui';
+import { z } from 'zod';
 
 export type ExecutionMode = 'task' | 'interactive';
 
+export type ChatConfig = z.infer<typeof ChatConfigSchema>;
+/*
 export interface ChatConfig {
   actor: {
     manifest_path: string;
     initial_state?: ChatProxyInitialState;
   };
 }
+*/
+export const ChatConfigSchema = z.object({
+  actor: z.object({
+    manifest_path: z.string(),
+    initial_state: z.any().optional(), // Allow any structure for saved sessions and flexible configs
+  }),
+});
 
-// Configuration file format
-export interface ConfigFile {
-  actor: {
-    manifest_path: string;
-  };
-  config: ChatProxyInitialState;
-}
 
 export interface ChatProxyInitialState {
   // Core task definition

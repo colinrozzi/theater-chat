@@ -2,12 +2,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import chalk from 'chalk';
-
-export interface ResolvedConfig {
-  config: any;
-  source: 'local' | 'global';
-  path: string;
-}
+import { ChatConfig, ChatConfigSchema } from './types';
 
 export interface ConfigInfo {
   name: string;
@@ -35,43 +30,6 @@ function getGlobalConfigDir(): string {
  */
 function getLocalConfigDir(): string {
   return join(process.cwd(), '.theater-chat');
-}
-
-/**
- * Resolve a config name to a file path, checking local first, then global
- */
-export function resolveConfigPath(configName: string): ResolvedConfig | null {
-  const localDir = getLocalConfigDir();
-  const globalDir = getGlobalConfigDir();
-  
-  // Add .json extension if not present
-  const fileName = configName.endsWith('.json') ? configName : `${configName}.json`;
-  
-  // Check local first
-  const localPath = join(localDir, fileName);
-  if (existsSync(localPath)) {
-    try {
-      const config = JSON.parse(readFileSync(localPath, 'utf8'));
-      return { config, source: 'local', path: localPath };
-    } catch (error) {
-      console.error(chalk.red(`Error parsing local config ${localPath}: ${error}`));
-      return null;
-    }
-  }
-  
-  // Check global
-  const globalPath = join(globalDir, fileName);
-  if (existsSync(globalPath)) {
-    try {
-      const config = JSON.parse(readFileSync(globalPath, 'utf8'));
-      return { config, source: 'global', path: globalPath };
-    } catch (error) {
-      console.error(chalk.red(`Error parsing global config ${globalPath}: ${error}`));
-      return null;
-    }
-  }
-  
-  return null;
 }
 
 /**
@@ -119,7 +77,7 @@ function scanDirectory(dir: string, prefix: string, source: 'local' | 'global', 
         const configName = prefix
           ? `${prefix}/${item.name.replace('.json', '')}`
           : item.name.replace('.json', '');
-        
+
         configs.push({
           name: configName,
           path: fullPath,
@@ -158,7 +116,7 @@ export function initConfigs(target: 'local' | 'global' | 'both' = 'local'): void
   if (target === 'local' || target === 'both') {
     const localDir = getLocalConfigDir();
     mkdirSync(localDir, { recursive: true });
-    
+
     const sonnetPath = join(localDir, 'sonnet.json');
     if (!existsSync(sonnetPath)) {
       writeFileSync(sonnetPath, JSON.stringify(defaultSonnetConfig, null, 2));
@@ -171,7 +129,7 @@ export function initConfigs(target: 'local' | 'global' | 'both' = 'local'): void
   if (target === 'global' || target === 'both') {
     const globalDir = getGlobalConfigDir();
     mkdirSync(globalDir, { recursive: true });
-    
+
     const sonnetPath = join(globalDir, 'sonnet.json');
     if (!existsSync(sonnetPath)) {
       writeFileSync(sonnetPath, JSON.stringify(defaultSonnetConfig, null, 2));
@@ -199,7 +157,7 @@ function generateTimestampFilename(): string {
   const year = now.getFullYear().toString().slice(-2);
   const hour = now.getHours().toString().padStart(2, '0');
   const minute = now.getMinutes().toString().padStart(2, '0');
-  
+
   return `${month}-${day}-${year}-${hour}${minute}`;
 }
 
@@ -209,12 +167,46 @@ function generateTimestampFilename(): string {
 export function autoSaveChatSession(chatMetadata: any): string {
   const savedDir = getSavedChatsDir();
   mkdirSync(savedDir, { recursive: true });
-  
+
   const filename = generateTimestampFilename();
   const savedPath = join(savedDir, `${filename}.json`);
-  
+
   writeFileSync(savedPath, JSON.stringify(chatMetadata, null, 2));
   console.log(chalk.green(`💾 Chat saved: saved/${filename}`));
-  
+
   return filename;
+}
+
+
+export interface ResolvedConfig {
+  config: ChatConfig;
+  source: 'local' | 'global';
+  path: string;
+}
+
+// Example function
+export function resolveConfigPath(configName: string): ResolvedConfig | null {
+  const localDir = getLocalConfigDir();
+  const globalDir = getGlobalConfigDir();
+  const fileName = configName.endsWith('.json') ? configName : `${configName}.json`;
+
+  const tryLoad = (dir: string, source: 'local' | 'global'): ResolvedConfig | null => {
+    const fullPath = join(dir, fileName);
+    if (!existsSync(fullPath)) return null;
+    try {
+      console.log(chalk.blue(`Loading config from ${source} directory: ${fullPath}`));
+      const parsed = JSON.parse(readFileSync(fullPath, 'utf8'));
+      console.log(parsed);
+      const config = ChatConfigSchema.parse(parsed);
+      return { config, source, path: fullPath };
+    } catch (err) {
+      console.error(chalk.red(`Invalid config at ${fullPath}: ${err}`));
+      return null;
+    }
+  };
+
+
+  let result = tryLoad(localDir, 'local') || tryLoad(globalDir, 'global');
+
+  return result;
 }

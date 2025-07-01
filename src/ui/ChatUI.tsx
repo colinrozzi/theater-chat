@@ -13,7 +13,7 @@ import {
   type SetupStatus,
 } from 'terminal-chat-ui';
 
-import { MultiLineInput } from './MultiLineInput.js'; 
+import { MultiLineInput } from './MultiLineInput.js';
 import type { ChatSession, CLIOptions, ChatConfig, } from '../types.js';
 import { TheaterChatClient, type ActorLifecycleCallbacks } from '../theater-client.js';
 import { formatActorError } from '../error-parser.js';
@@ -246,6 +246,9 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         };
 
         // Start domain actor with callbacks
+        if (options.verbose) {
+          console.log('Starting domain actor with: ', config)
+        }
         const domainActor = await client.startDomainActor(
           config.actor.manifest_path,
           config.actor.initial_state,
@@ -269,9 +272,11 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
           const metadataResponse = await chatActor.requestJson({
             type: 'get_metadata'
           });
-          
+
           if (metadataResponse) {
-            const filename = autoSaveChatSession(metadataResponse);
+            // Remove the type wrapper and save just the metadata
+            const { type, ...metadata } = metadataResponse;
+            const filename = autoSaveChatSession(metadata);
             setSetupMessage(`Chat saved as: saved/${filename}`);
           }
         } catch (error) {
@@ -421,25 +426,25 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
       ) : (
         <>
           <Box flexDirection="column" width="100%" paddingLeft={1} paddingRight={1} marginTop={1}>
-              <>
-                {/* Render all messages */}
-                {messages.map((message, index) => (
-                  <MessageComponent
-                    key={index}
-                    message={message}
-                    toolDisplayMode={toolDisplayMode}
-                    prefixOverrides={{
-                      user: '',
-                      assistant: '',
-                      system: '[system] ',
-                      tool: '[tool] '
-                    }}
-                  />
-                ))}
+            <>
+              {/* Render all messages */}
+              {messages.map((message, index) => (
+                <MessageComponent
+                  key={index}
+                  message={message}
+                  toolDisplayMode={toolDisplayMode}
+                  prefixOverrides={{
+                    user: '',
+                    assistant: '',
+                    system: '[system] ',
+                    tool: '[tool] '
+                  }}
+                />
+              ))}
 
-                {/* Show loading indicator when generating (but not if actor has exited) */}
-                {isGenerating && !actorHasExited && <LoadingIndicator />}
-              </>
+              {/* Show loading indicator when generating (but not if actor has exited) */}
+              {isGenerating && !actorHasExited && <LoadingIndicator />}
+            </>
           </Box>
 
           {/* Conditional input rendering based on mode */}

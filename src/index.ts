@@ -13,31 +13,10 @@ import { program } from 'commander';
 import chalk from 'chalk';
 import { renderChatApp } from './ui/ChatUI.js';
 import { resolveConfigPath, listConfigs, initConfigs } from './config-resolver.js';
-import type { CLIOptions, ChatConfig, ChatProxyInitialState, ConfigFile } from './types.js';
+import type { CLIOptions, ChatConfig } from './types.js';
 
 // Reserved command words that should not be treated as config names
 const RESERVED_COMMANDS = ['list', 'init'];
-
-/**
- * Convert config file to ChatConfig format
- */
-function convertToNewConfigFormat(loadedConfig: ConfigFile): ChatConfig {
-  // Validate that it's in the required new format
-  if (!loadedConfig.actor || !loadedConfig.config) {
-    throw new Error('Configuration must include both "actor" and "config" sections. Please update your config to the new format.');
-  }
-
-  if (!loadedConfig.actor.manifest_path) {
-    throw new Error('Configuration must specify "actor.manifest_path".');
-  }
-
-  return {
-    actor: {
-      manifest_path: loadedConfig.actor.manifest_path,
-      initial_state: loadedConfig.config
-    }
-  };
-}
 
 // Main program setup
 program
@@ -173,8 +152,7 @@ async function handleChatCommand(configName: string, options: CLIOptions): Promi
     console.log(chalk.gray(`   Path: ${resolved.path}`));
     console.log();
 
-    // Handle both old and new config formats
-    const chatConfig: ChatConfig = convertToNewConfigFormat(resolved.config);
+    let chatConfig: ChatConfig = resolved.config;
 
     // Add initial message if provided
     if (options.message) {
