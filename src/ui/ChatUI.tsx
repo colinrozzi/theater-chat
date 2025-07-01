@@ -264,14 +264,8 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         // Auto-save chat session metadata
         try {
           setSetupMessage('Saving chat session...');
-          // Get the actor instance and request metadata
-          const actors = await client.getRawClient().listActors();
-          const chatActor = actors.find(a => a.id === chatActorId);
-          
-          if (!chatActor) {
-            throw new Error('Chat actor not found');
-          }
-          
+          // Get the chat actor instance and request metadata
+          const chatActor = await client.getActorById(chatActorId);
           const metadataResponse = await chatActor.requestJson({
             type: 'get_metadata'
           });
