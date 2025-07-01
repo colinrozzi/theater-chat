@@ -165,12 +165,149 @@ export function MultiLineInput({
 
     // Command mode key handling
     if (mode === 'command') {
+      // Vim-style navigation
+      if (input === 'h') {
+        // h - move left
+        moveCursor(actualCursorPosition - 1);
+        return;
+      }
+      if (input === 'l') {
+        // l - move right
+        moveCursor(actualCursorPosition + 1);
+        return;
+      }
+      if (input === 'j') {
+        // j - move down
+        const currentLineEnd = actualContent.indexOf('\n', actualCursorPosition);
+        if (currentLineEnd !== -1) {
+          const nextLineEnd = actualContent.indexOf('\n', currentLineEnd + 1);
+          const targetCol = cursorCol;
+          const nextLineStart = currentLineEnd + 1;
+          const nextLineLength = nextLineEnd !== -1 ? nextLineEnd - nextLineStart : actualContent.length - nextLineStart;
+          const newPos = nextLineStart + Math.min(targetCol, nextLineLength);
+          moveCursor(newPos);
+        }
+        return;
+      }
+      if (input === 'k') {
+        // k - move up
+        const currentLineStart = actualContent.lastIndexOf('\n', actualCursorPosition - 1);
+        const prevLineStart = currentLineStart > 0 ? actualContent.lastIndexOf('\n', currentLineStart - 1) : -1;
+        if (prevLineStart !== -1) {
+          const targetCol = cursorCol;
+          const prevLineEnd = currentLineStart;
+          const prevLineLength = prevLineEnd - prevLineStart - 1;
+          const newPos = prevLineStart + 1 + Math.min(targetCol, prevLineLength);
+          moveCursor(newPos);
+        }
+        return;
+      }
+      
+      // Vim-style line navigation
+      if (input === '0') {
+        // 0 - move to beginning of line
+        const currentLineStart = actualContent.lastIndexOf('\n', actualCursorPosition - 1);
+        const lineStart = currentLineStart === -1 ? 0 : currentLineStart + 1;
+        moveCursor(lineStart);
+        return;
+      }
+      if (input === '$') {
+        // $ - move to end of line
+        const currentLineEnd = actualContent.indexOf('\n', actualCursorPosition);
+        const lineEnd = currentLineEnd === -1 ? actualContent.length : currentLineEnd;
+        moveCursor(lineEnd);
+        return;
+      }
+      
+      // More vim-style commands
+      if (input === 'w') {
+        // w - move to next word
+        const rest = actualContent.slice(actualCursorPosition);
+        const wordMatch = rest.match(/\s*\S+\s*/);
+        if (wordMatch) {
+          moveCursor(actualCursorPosition + wordMatch[0].length);
+        }
+        return;
+      }
+      if (input === 'b') {
+        // b - move to previous word
+        const before = actualContent.slice(0, actualCursorPosition);
+        const reversed = before.split('').reverse().join('');
+        const wordMatch = reversed.match(/\s*\S+/);
+        if (wordMatch) {
+          moveCursor(actualCursorPosition - wordMatch[0].length);
+        }
+        return;
+      }
+      
+      // Insert mode commands
       if (input === 'i') {
-        // 'i' enters insert mode
+        // i - enter insert mode at cursor
         onModeChange?.('insert');
         return;
       }
-      // In command mode, ignore most other keys except navigation
+      if (input === 'a') {
+        // a - enter insert mode after cursor
+        moveCursor(actualCursorPosition + 1);
+        onModeChange?.('insert');
+        return;
+      }
+      if (input === 'A') {
+        // A - enter insert mode at end of line
+        const currentLineEnd = actualContent.indexOf('\n', actualCursorPosition);
+        const lineEnd = currentLineEnd === -1 ? actualContent.length : currentLineEnd;
+        moveCursor(lineEnd);
+        onModeChange?.('insert');
+        return;
+      }
+      if (input === 'I') {
+        // I - enter insert mode at beginning of line
+        const currentLineStart = actualContent.lastIndexOf('\n', actualCursorPosition - 1);
+        const lineStart = currentLineStart === -1 ? 0 : currentLineStart + 1;
+        moveCursor(lineStart);
+        onModeChange?.('insert');
+        return;
+      }
+      if (input === 'o') {
+        // o - open new line below and enter insert mode
+        const currentLineEnd = actualContent.indexOf('\n', actualCursorPosition);
+        const insertPos = currentLineEnd === -1 ? actualContent.length : currentLineEnd;
+        const before = actualContent.slice(0, insertPos);
+        const after = actualContent.slice(insertPos);
+        const newContent = before + '\n' + after;
+        const newCursor = insertPos + 1;
+        
+        if (isControlled) {
+          onContentChange?.(newContent);
+          onCursorChange?.(newCursor);
+        } else {
+          setInternalContent(newContent);
+          setInternalCursorPosition(newCursor);
+        }
+        onModeChange?.('insert');
+        return;
+      }
+      if (input === 'O') {
+        // O - open new line above and enter insert mode
+        const currentLineStart = actualContent.lastIndexOf('\n', actualCursorPosition - 1);
+        const insertPos = currentLineStart === -1 ? 0 : currentLineStart + 1;
+        const before = actualContent.slice(0, insertPos);
+        const after = actualContent.slice(insertPos);
+        const newContent = before + '\n' + after;
+        const newCursor = insertPos;
+        
+        if (isControlled) {
+          onContentChange?.(newContent);
+          onCursorChange?.(newCursor);
+        } else {
+          setInternalContent(newContent);
+          setInternalCursorPosition(newCursor);
+        }
+        onModeChange?.('insert');
+        return;
+      }
+      
+      // Arrow keys still work in command mode
       if (key.leftArrow) {
         moveCursor(actualCursorPosition - 1);
         return;
@@ -179,6 +316,7 @@ export function MultiLineInput({
         moveCursor(actualCursorPosition + 1);
         return;
       }
+      
       // Ignore other input in command mode
       return;
     }
