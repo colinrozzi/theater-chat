@@ -17,6 +17,7 @@ import { MultiLineInput } from './MultiLineInput.js';
 import type { ChatSession, CLIOptions, ChatConfig, } from '../types.js';
 import { TheaterChatClient, type ActorLifecycleCallbacks } from '../theater-client.js';
 import { formatActorError } from '../error-parser.js';
+import { autoSaveChatSession } from '../config-resolver.js';
 import type { ChannelStream } from 'theater-client';
 
 interface ChatAppProps {
@@ -259,6 +260,32 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
           chatActorId
         };
         setSession(session);
+
+        // Auto-save chat session metadata
+        try {
+          setSetupMessage('Saving chat session...');
+          // Get the actor instance and request metadata
+          const actors = await client.getRawClient().listActors();
+          const chatActor = actors.find(a => a.id === chatActorId);
+          
+          if (!chatActor) {
+            throw new Error('Chat actor not found');
+          }
+          
+          const metadataResponse = await chatActor.requestJson({
+            type: 'get_metadata'
+          });
+          
+          if (metadataResponse) {
+            const filename = autoSaveChatSession(metadataResponse);
+            setSetupMessage(`Chat saved as: saved/${filename}`);
+          }
+        } catch (error) {
+          if (options.verbose) {
+            console.error('Failed to save chat session:', error);
+          }
+          // Don't fail the whole setup if save fails
+        }
 
         setSetupStatus('opening_channel');
         setSetupMessage('Opening communication channel...');
