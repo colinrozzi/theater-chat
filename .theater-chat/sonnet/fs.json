@@ -18,7 +18,7 @@
           "command": "/Users/colinrozzi/work/mcp-servers/bin/fs-mcp-server",
           "args": [
             "--allowed-dirs",
-            "/Users/colinrozzi/work/tools/theater-chat"
+            "/Users/colinrozzi/work/tools/theater-chat,/Users/colinrozzi/work/theater,/Users/colinrozzi/work/tools/terminal-chat-ui"
           ]
         },
         "tools": null
