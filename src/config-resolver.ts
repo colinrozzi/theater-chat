@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import chalk from 'chalk';
@@ -78,70 +78,59 @@ export function resolveConfigPath(configName: string): ResolvedConfig | null {
  * Get all available configs (local and global)
  */
 export function listConfigs(): ConfigInfo[] {
-  const configs: ConfigInfo[] = [];
   const localDir = getLocalConfigDir();
   const globalDir = getGlobalConfigDir();
-  
-  // Collect all unique config names
-  const configNames = new Set<string>();
-  
-  // Scan local configs
+  const allConfigs: ConfigInfo[] = [];
+
+  // Scan local and global directories
   if (existsSync(localDir)) {
-    scanDirectory(localDir, '', configNames);
+    scanDirectory(localDir, '', 'local', allConfigs);
   }
-  
-  // Scan global configs
   if (existsSync(globalDir)) {
-    scanDirectory(globalDir, '', configNames);
+    scanDirectory(globalDir, '', 'global', allConfigs);
   }
-  
-  // Create ConfigInfo for each unique config
-  for (const name of Array.from(configNames).sort()) {
-    const localPath = join(localDir, `${name}.json`);
-    const globalPath = join(globalDir, `${name}.json`);
-    
-    if (existsSync(localPath)) {
-      configs.push({
-        name,
-        path: localPath,
-        source: 'local',
-        exists: true
-      });
-    } else if (existsSync(globalPath)) {
-      configs.push({
-        name,
-        path: globalPath,
-        source: 'global',
-        exists: true
-      });
+
+  // Deduplicate, giving precedence to local configs
+  const uniqueConfigs = new Map<string, ConfigInfo>();
+  for (const config of allConfigs) {
+    if (!uniqueConfigs.has(config.name)) {
+      uniqueConfigs.set(config.name, config);
     }
   }
-  
-  return configs;
+
+  return Array.from(uniqueConfigs.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
- * Recursively scan directory for JSON configs
+ * Recursively scan directory for JSON configs and add them to a list
  */
-function scanDirectory(dir: string, prefix: string, configNames: Set<string>) {
+function scanDirectory(dir: string, prefix: string, source: 'local' | 'global', configs: ConfigInfo[]) {
   if (!existsSync(dir)) return;
-  
+
   try {
-    const items = require('fs').readdirSync(dir, { withFileTypes: true });
-    
+    const items = readdirSync(dir, { withFileTypes: true });
+
     for (const item of items) {
+      const fullPath = join(dir, item.name);
       if (item.isDirectory()) {
         const subPrefix = prefix ? `${prefix}/${item.name}` : item.name;
-        scanDirectory(join(dir, item.name), subPrefix, configNames);
+        scanDirectory(fullPath, subPrefix, source, configs);
       } else if (item.name.endsWith('.json')) {
-        const configName = prefix 
+        const configName = prefix
           ? `${prefix}/${item.name.replace('.json', '')}`
           : item.name.replace('.json', '');
-        configNames.add(configName);
+        
+        configs.push({
+          name: configName,
+          path: fullPath,
+          source: source,
+          exists: true
+        });
       }
     }
   } catch (error) {
-    // Ignore errors scanning directories
+    // Log errors instead of ignoring them
+    console.error(chalk.yellow(`⚠ Could not scan directory ${dir}: ${error instanceof Error ? error.message : String(error)}`));
   }
 }
 
