@@ -181,3 +181,40 @@ export function initConfigs(target: 'local' | 'global' | 'both' = 'local'): void
     }
   }
 }
+
+/**
+ * Get the saved chats directory (local only)
+ */
+function getSavedChatsDir(): string {
+  return join(getLocalConfigDir(), 'saved');
+}
+
+/**
+ * Generate a timestamp-based filename for saving chats
+ */
+function generateTimestampFilename(): string {
+  const now = new Date();
+  const month = (now.getMonth() + 1).toString();
+  const day = now.getDate().toString();
+  const year = now.getFullYear().toString().slice(-2);
+  const hour = now.getHours().toString().padStart(2, '0');
+  const minute = now.getMinutes().toString().padStart(2, '0');
+  
+  return `${month}-${day}-${year}-${hour}${minute}`;
+}
+
+/**
+ * Save chat metadata to a timestamped file
+ */
+export function autoSaveChatSession(chatMetadata: any): string {
+  const savedDir = getSavedChatsDir();
+  mkdirSync(savedDir, { recursive: true });
+  
+  const filename = generateTimestampFilename();
+  const savedPath = join(savedDir, `${filename}.json`);
+  
+  writeFileSync(savedPath, JSON.stringify(chatMetadata, null, 2));
+  console.log(chalk.green(`💾 Chat saved: saved/${filename}`));
+  
+  return filename;
+}
