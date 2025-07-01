@@ -179,6 +179,14 @@ export class TheaterChatClient {
   }
 
   /**
+   * Get an actor instance by ID for making requests
+   */
+  async getActorById(actorId: string): Promise<Actor> {
+    // Create an Actor wrapper for an existing actor ID
+    return new Actor(actorId, this.client);
+  }
+
+  /**
    * Get raw theater client
    */
   getRawClient(): TheaterClient {
