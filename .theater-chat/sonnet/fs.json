@@ -8,7 +8,7 @@
       "provider": "anthropic"
     },
     "temperature": 1,
-    "max_tokens": 8192,
+    "max_tokens": 64000,
     "system_prompt": "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
     "title": "Sonnet + Filesystem",
     "mcp_servers": [
