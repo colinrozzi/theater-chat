@@ -33,7 +33,7 @@ interface ChatAppProps {
  */
 function LoadingIndicator() {
   return (
-    <Box paddingLeft={1} marginY={1}>
+    <Box paddingLeft={1} >
       <Text color="gray">Assistant: </Text>
       <Spinner type="dots" />
       <Text color="gray" dimColor> thinking...</Text>
@@ -401,11 +401,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
       ) : (
         <>
           <Box flexDirection="column" width="100%" paddingLeft={1} paddingRight={1} marginTop={1}>
-            {messages.length === 0 && !isGenerating ? (
-              <Text color="gray" dimColor>
-                Hello this is a placeholder
-              </Text>
-            ) : (
               <>
                 {/* Render all messages */}
                 {messages.map((message, index) => (
@@ -426,7 +421,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
                 {/* Show loading indicator when generating (but not if actor has exited) */}
                 {isGenerating && !actorHasExited && <LoadingIndicator />}
               </>
-            )}
           </Box>
 
           {/* Conditional input rendering based on mode */}
