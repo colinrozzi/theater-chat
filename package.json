@@ -44,7 +44,7 @@
     "commander": "^11.1.0",
     "uuid": "^9.0.1",
     "theater-client": "^0.1.0",
-    "terminal-chat-ui": "^1.0.1"
+    "terminal-chat-ui": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
