@@ -1,6 +1,6 @@
 {
   "actor": {
-    "manifest_path": "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
+    "manifest_path": "/Users/colinrozzi/work/actor-registry/chat-state-proxy/manifest.toml"
   },
   "config": {
     "model_config": {
