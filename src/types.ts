@@ -10,8 +10,6 @@ export type {
   ChatSession
 } from 'terminal-chat-ui';
 
-// Git-agent specific types
-export type GitWorkflow = 'commit' | 'review' | 'rebase' | 'chat';
 export type ExecutionMode = 'task' | 'interactive';
 
 export interface ChatConfig {

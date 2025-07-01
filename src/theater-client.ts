@@ -131,7 +131,7 @@ export class TheaterChatClient {
   /**
    * Start the git workflow automation using task-manager
    */
-  async startGitWorkflow(taskManagerActor: Actor): Promise<void> {
+  async startWorkflow(taskManagerActor: Actor): Promise<void> {
     const response = await taskManagerActor.requestJson({
       type: 'StartChat'
     });

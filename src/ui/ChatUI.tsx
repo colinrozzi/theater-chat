@@ -104,7 +104,7 @@ function MultiLineInputWithModes({
 }
 
 /**
- * Main Git Chat application with simplified message handling
+ * Main Chat application with simplified message handling
  */
 function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
   const { isRawModeSupported, setRawMode, stdin } = useStdin();
@@ -211,7 +211,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
             setIsGenerating(false);
 
             // For other cases or chat mode, show the shutdown message
-            addMessage('system', 'Git assistant has shut down.');
+            addMessage('system', 'assistant has shut down.');
 
             // Trigger app shutdown
             setTimeout(async () => {
@@ -227,7 +227,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
             setActorHasExited(true);
             setIsGenerating(false);
             const errorMessage = formatActorError(error);
-            addMessage('error', `Git assistant error: ${errorMessage}`);
+            addMessage('error', `assistant error: ${errorMessage}`);
 
             // Trigger app shutdown on error
             setTimeout(async () => {
@@ -325,7 +325,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
 
         setChannel(channelStream);
 
-        await client.startGitWorkflow(session.domainActor);
+        await client.startWorkflow(session.domainActor);
 
         setSetupStatus('ready');
 
@@ -387,7 +387,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
             { key: 'Ctrl+T', description: 'Toggle tool display' },
             { key: 'Ctrl+H', description: 'Toggle help' }
           ]}
-          variant="git"
         />
       )}
 
@@ -408,7 +407,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
                     key={index}
                     message={message}
                     toolDisplayMode={toolDisplayMode}
-                    variant="git"
                     prefixOverrides={{
                       user: '',
                       assistant: '',
@@ -444,7 +442,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
 }
 
 /**
- * Render the Git Chat app with proper cleanup handling
+ * Render the Chat app with proper cleanup handling
  */
 export async function renderChatApp(
   options: CLIOptions,
