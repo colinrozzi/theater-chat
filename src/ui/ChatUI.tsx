@@ -11,9 +11,9 @@ import {
   useMessageState,
   type ToolDisplayMode,
   type SetupStatus,
-  MultiLineInput
 } from 'terminal-chat-ui';
 
+import { MultiLineInput } from './MultiLineInput.js'; 
 import type { ChatSession, CLIOptions, ChatConfig, } from '../types.js';
 import { TheaterChatClient, type ActorLifecycleCallbacks } from '../theater-client.js';
 import { formatActorError } from '../error-parser.js';
