@@ -26,11 +26,11 @@ function convertToNewConfigFormat(loadedConfig: ConfigFile): ChatConfig {
   if (!loadedConfig.actor || !loadedConfig.config) {
     throw new Error('Configuration must include both "actor" and "config" sections. Please update your config to the new format.');
   }
-  
+
   if (!loadedConfig.actor.manifest_path) {
     throw new Error('Configuration must specify "actor.manifest_path".');
   }
-  
+
   return {
     actor: {
       manifest_path: loadedConfig.actor.manifest_path,
@@ -49,7 +49,7 @@ program
   .option('--verbose', 'Enable verbose logging')
   .action(async (options, command) => {
     const args = command.args;
-    
+
     if (args.length === 0) {
       console.error(chalk.red('❌ No command or config specified'));
       console.log(chalk.gray('Usage: theater-chat <config-name> | list | init'));
@@ -85,11 +85,8 @@ program.parse();
  * Handle the 'list' command - show available configs
  */
 function handleListCommand(): void {
-  console.log(chalk.bold('📋 Available Configurations:'));
-  console.log();
-  
   const configs = listConfigs();
-  
+
   if (configs.length === 0) {
     console.log(chalk.yellow('No configurations found.'));
     console.log(chalk.gray('Run `theater-chat init` to create default configs.'));
@@ -101,7 +98,7 @@ function handleListCommand(): void {
   const globalConfigs = configs.filter(c => c.source === 'global');
 
   if (localConfigs.length > 0) {
-    console.log(chalk.blue('🏠 Local (.theater-chat/):'));
+    console.log(chalk.blue('Local (.theater-chat/):'));
     for (const config of localConfigs) {
       console.log(`  ${chalk.green(config.name)} ${chalk.gray(`(${config.path})`)}`);
     }
@@ -109,7 +106,7 @@ function handleListCommand(): void {
   }
 
   if (globalConfigs.length > 0) {
-    console.log(chalk.blue('🌍 Global (~/.config/theater-chat/):'));
+    console.log(chalk.blue('Global (~/.config/theater-chat/):'));
     for (const config of globalConfigs) {
       console.log(`  ${chalk.green(config.name)} ${chalk.gray(`(${config.path})`)}`);
     }
@@ -128,7 +125,7 @@ function handleInitCommand(args: string[]): void {
   console.log();
 
   const target = args[0] as 'local' | 'global' | 'both' || 'local';
-  
+
   if (target && !['local', 'global', 'both'].includes(target)) {
     console.error(chalk.red(`❌ Invalid target: ${target}`));
     console.log(chalk.gray('Valid targets: local, global, both'));
@@ -153,11 +150,11 @@ async function handleChatCommand(configName: string, options: CLIOptions): Promi
   try {
     // Resolve the config
     const resolved = resolveConfigPath(configName);
-    
+
     if (!resolved) {
       console.error(chalk.red(`❌ Config not found: ${configName}`));
       console.log(chalk.gray('Available configs:'));
-      
+
       const configs = listConfigs();
       if (configs.length === 0) {
         console.log(chalk.gray('  (none found - run `theater-chat init` to create defaults)'));
