@@ -174,7 +174,7 @@ export function autoSaveChatSession(chatMetadata: any): string {
   const savedPath = join(savedDir, `${filename}.json`);
 
   writeFileSync(savedPath, JSON.stringify(chatMetadata, null, 2));
-  console.log(chalk.green(`💾 Chat saved: saved/${filename}`));
+  console.log(chalk.green(` Chat saved at: saved/${filename}`));
 
   return filename;
 }
@@ -196,9 +196,7 @@ export function resolveConfigPath(configName: string): ResolvedConfig | null {
     const fullPath = join(dir, fileName);
     if (!existsSync(fullPath)) return null;
     try {
-      console.log(chalk.blue(`Loading config from ${source} directory: ${fullPath}`));
       const parsed = JSON.parse(readFileSync(fullPath, 'utf8'));
-      console.log(parsed);
       const config = ChatConfigSchema.parse(parsed);
       return { config, source, path: fullPath };
     } catch (err) {
