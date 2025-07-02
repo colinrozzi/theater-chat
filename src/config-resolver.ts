@@ -2,7 +2,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import chalk from 'chalk';
-import { ChatConfig, ChatConfigSchema } from './types';
+import { ChatConfig, ChatConfigSchema } from './types.js';
 
 export interface ConfigInfo {
   name: string;
