@@ -179,7 +179,7 @@ export function autoSaveChatSession(chatMetadata: any): string {
   const savedPath = join(savedDir, `${filename}.json`);
 
   writeFileSync(savedPath, JSON.stringify(chatMetadata, null, 2));
-  console.log(chalk.green(` Chat saved at: saved/${filename}`));
+  console.log(chalk.green(`   Chat saved at: saved/${filename}`));
 
   return filename;
 }
