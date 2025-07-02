@@ -29,14 +29,12 @@ program
   .action(async (options, command) => {
     const args = command.args;
 
+    let firstArg;
     if (args.length === 0) {
-      console.error(chalk.red('❌ No command or config specified'));
-      console.log(chalk.gray('Usage: theater-chat <config-name> | list | init'));
-      console.log(chalk.gray('Try: theater-chat list'));
-      process.exit(1);
+      firstArg = 'default'; // Default config if no args provided
+    } else if (args.length > 1 && RESERVED_COMMANDS.includes(args[0])) {
+      firstArg = args[0];
     }
-
-    const firstArg = args[0];
 
     // Handle reserved commands
     if (firstArg === 'list') {
@@ -148,7 +146,7 @@ async function handleChatCommand(configName: string, options: CLIOptions): Promi
       process.exit(1);
     }
 
-    console.log(chalk.blue(`📝 Using ${resolved.source} config: ${chalk.bold(configName)}`));
+    console.log(chalk.blue(`   Using ${resolved.source} config: ${chalk.bold(configName)}`));
     console.log(chalk.gray(`   Path: ${resolved.path}`));
     console.log();
 
