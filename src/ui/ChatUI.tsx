@@ -17,6 +17,7 @@ import { MultiLineInput } from './MultiLineInput.js';
 import type { ChatSession, CLIOptions, ChatConfig, } from '../types.js';
 import { TheaterChatClient, type ActorLifecycleCallbacks } from '../theater-client.js';
 import { formatActorError } from '../error-parser.js';
+import { formatTheaterError, getServerAddress, shouldExitOnError } from '../enhanced-error-parser.js';
 import { autoSaveChatSession } from '../config-resolver.js';
 import type { ChannelStream } from 'theater-client';
 
@@ -227,7 +228,8 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
             }
             setActorHasExited(true);
             setIsGenerating(false);
-            const errorMessage = formatActorError(error);
+            const serverAddress = getServerAddress(options);
+            const errorMessage = formatTheaterError(error, serverAddress);
             addMessage('error', `assistant error: ${errorMessage}`);
 
             // Trigger app shutdown on error
@@ -373,7 +375,9 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
               }
             }
           } catch (error) {
-            addMessage('error', `Error: ${formatActorError(error)}`);
+            const serverAddress = getServerAddress(options);
+            const errorMessage = formatTheaterError(error, serverAddress);
+            addMessage('error', `Error: ${errorMessage}`);
             setIsGenerating(false);
           }
         });
@@ -386,9 +390,16 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
 
       } catch (error) {
         setSetupStatus('error');
-        const errorMessage = formatActorError(error);
+        const serverAddress = getServerAddress(options);
+        const errorMessage = formatTheaterError(error, serverAddress);
         setSetupMessage(`Error: ${errorMessage}`);
         setIsGenerating(false);
+        
+        // Exit immediately if this is a connection error
+        if (shouldExitOnError(error)) {
+          await cleanup();
+          process.exit(1);
+        }
       }
     }
 
@@ -406,7 +417,8 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
       await client.sendMessage(session.domainActor, messageText.trim());
 
     } catch (error) {
-      const errorMessage = formatActorError(error);
+      const serverAddress = getServerAddress(options);
+      const errorMessage = formatTheaterError(error, serverAddress);
       addMessage('error', `Error sending message: ${errorMessage}`);
       setIsGenerating(false);
     }
