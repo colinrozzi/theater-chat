@@ -286,10 +286,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
             const savedConfig = {
               actor: {
                 manifest_path: config.actor.manifest_path,
-                initial_state: {
-                  store_id: metadata.store_id,
-                  conversation_id: metadata.conversation_id
-                }
+                initial_state: metadata
               }
             };
 
