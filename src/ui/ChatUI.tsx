@@ -257,6 +257,26 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         setSetupMessage(`Actor started: ${domainActor.id}`);
         setSetupStatus('loading_actor');
         const chatActorId = await client.getChatStateActorId(domainActor);
+
+        const chatActor = await client.getActorById(chatActorId);
+        // subscribe to the actor's events and print them to the console
+        // chatActor.subscribe() returns a promise that resolves to an ActorEventStream
+        // which we can use to listen for events
+        chatActor.subscribe().then((stream) => {
+          stream.onEvent((message) => {
+            if (options.verbose) {
+              console.log(`Chat actor event: ${JSON.stringify(message, null, 2)}`);
+            }
+          });
+
+          stream.onError((error) => {
+            console.error(`Chat actor error: ${error instanceof Error ? error.message : String(error)}`);
+          });
+        }).catch((error) => {
+          console.error(`Failed to subscribe to chat actor events: ${error instanceof Error ? error.message : String(error)}`);
+        });
+
+
         setSetupMessage(`Chat actor ID: ${chatActorId}`);
         const session: ChatSession = {
           domainActor,
