@@ -98,18 +98,20 @@ function scanDirectory(dir: string, prefix: string, source: 'local' | 'global', 
 export function initConfigs(target: 'local' | 'global' | 'both' = 'local'): void {
   const defaultSonnetConfig = {
     actor: {
-      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-proxy-example/manifest.toml"
-    },
-    config: {
-      model_config: {
-        model: "claude-sonnet-4-20250514",
-        provider: "anthropic"
-      },
-      temperature: 1,
-      max_tokens: 8192,
-      system_prompt: "You are a helpful assistant.",
-      title: "Sonnet Chat",
-      mcp_servers: []
+      manifest_path: "/Users/colinrozzi/work/actor-registry/chat-state-proxy/manifest.toml",
+      initial_state: {
+        config: {
+          model_config: {
+            model: "claude-sonnet-4-20250514",
+            provider: "anthropic"
+          },
+          temperature: 1,
+          max_tokens: 8192,
+          system_prompt: "You are a helpful programming assistant.",
+          title: "Sonnet Chat",
+          mcp_servers: []
+        }
+      }
     }
   };
 
