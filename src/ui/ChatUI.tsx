@@ -274,9 +274,21 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
           });
 
           if (metadataResponse) {
-            // Remove the type wrapper and save just the metadata
+            // Remove the type wrapper and extract metadata
             const { type, ...metadata } = metadataResponse;
-            const filename = autoSaveChatSession(metadata);
+            
+            // Merge original actor config with session metadata
+            const savedConfig = {
+              actor: {
+                manifest_path: config.actor.manifest_path,
+                initial_state: {
+                  store_id: metadata.store_id,
+                  conversation_id: metadata.conversation_id
+                }
+              }
+            };
+            
+            const filename = autoSaveChatSession(savedConfig);
             setSetupMessage(`Chat saved as: saved/${filename}`);
           }
         } catch (error) {
