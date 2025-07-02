@@ -32,8 +32,8 @@ program
     let firstArg;
     if (args.length === 0) {
       firstArg = 'default'; // Default config if no args provided
-    } else if (args.length > 1 && RESERVED_COMMANDS.includes(args[0])) {
-      firstArg = args[0];
+    } else {
+      firstArg = args[0]; // First argument is either a command or config name
     }
 
     // Handle reserved commands
