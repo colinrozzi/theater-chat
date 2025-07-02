@@ -69,6 +69,11 @@ function scanDirectory(dir: string, prefix: string, source: 'local' | 'global', 
     const items = readdirSync(dir, { withFileTypes: true });
 
     for (const item of items) {
+      // Skip items with undefined names (corrupted file system entries)
+      if (!item.name) {
+        continue;
+      }
+      
       const fullPath = join(dir, item.name);
       if (item.isDirectory()) {
         const subPrefix = prefix ? `${prefix}/${item.name}` : item.name;
