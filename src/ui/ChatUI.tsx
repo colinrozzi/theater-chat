@@ -264,19 +264,24 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         };
         setSession(session);
 
+        setSetupStatus('opening_channel');
+        setSetupMessage('Opening communication channel...');
+
+        const channelStream = await client.openChannelStream(session.chatActorId);
+
         // Auto-save chat session metadata
         try {
           setSetupMessage('Saving chat session...');
           // Get the chat actor instance and request metadata
-          const chatActor = await client.getActorById(chatActorId);
-          const metadataResponse = await chatActor.requestJson({
+          //const chatActor = await client.getActorById(chatActorId);
+          const metadataResponse = await domainActor.requestJson({
             type: 'get_metadata'
           });
 
           if (metadataResponse) {
             // Remove the type wrapper and extract metadata
             const { type, ...metadata } = metadataResponse;
-            
+
             // Merge original actor config with session metadata
             const savedConfig = {
               actor: {
@@ -287,7 +292,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
                 }
               }
             };
-            
+
             const filename = autoSaveChatSession(savedConfig);
             setSetupMessage(`Chat saved as: saved/${filename}`);
           }
@@ -297,11 +302,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
           }
           // Don't fail the whole setup if save fails
         }
-
-        setSetupStatus('opening_channel');
-        setSetupMessage('Opening communication channel...');
-
-        const channelStream = await client.openChannelStream(session.chatActorId);
 
         setSetupStatus('loading_actor');
         setSetupMessage('Loading chat actor...');
