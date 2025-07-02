@@ -148,7 +148,6 @@ async function handleChatCommand(configName: string, options: CLIOptions): Promi
 
     console.log(chalk.blue(`   Using ${resolved.source} config: ${chalk.bold(configName)}`));
     console.log(chalk.gray(`   Path: ${resolved.path}`));
-    console.log();
 
     let chatConfig: ChatConfig = resolved.config;
 
