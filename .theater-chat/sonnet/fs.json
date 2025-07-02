@@ -1,28 +1,30 @@
 {
   "actor": {
-    "manifest_path": "/Users/colinrozzi/work/actor-registry/chat-state-proxy/manifest.toml"
-  },
-  "config": {
-    "model_config": {
-      "model": "claude-sonnet-4-20250514",
-      "provider": "anthropic"
-    },
-    "temperature": 1,
-    "max_tokens": 64000,
-    "system_prompt": "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
-    "title": "Sonnet + Filesystem",
-    "mcp_servers": [
-      {
-        "actor_id": null,
-        "stdio": {
-          "command": "/Users/colinrozzi/work/mcp-servers/bin/fs-mcp-server",
-          "args": [
-            "--allowed-dirs",
-            "/Users/colinrozzi/work/tools/theater-chat,/Users/colinrozzi/work/theater,/Users/colinrozzi/work/tools/terminal-chat-ui"
-          ]
+    "manifest_path": "/Users/colinrozzi/work/actor-registry/chat-state-proxy/manifest.toml",
+    "initial_state": {
+      "config": {
+        "model_config": {
+          "model": "claude-sonnet-4-20250514",
+          "provider": "anthropic"
         },
-        "tools": null
+        "temperature": 1,
+        "max_tokens": 64000,
+        "system_prompt": "You are a helpful programming assistant with filesystem access. You can read, write, and analyze files in the current project.",
+        "title": "Sonnet + Filesystem",
+        "mcp_servers": [
+          {
+            "actor_id": null,
+            "stdio": {
+              "command": "/Users/colinrozzi/work/mcp-servers/bin/fs-mcp-server",
+              "args": [
+                "--allowed-dirs",
+                "/Users/colinrozzi/work/tools/theater-chat,/Users/colinrozzi/work/theater,/Users/colinrozzi/work/tools/terminal-chat-ui"
+              ]
+            },
+            "tools": null
+          }
+        ]
       }
-    ]
+    }
   }
 }
