@@ -15,7 +15,7 @@ import {
 
 import { MultiLineInput } from './MultiLineInput.js';
 import type { ChatSession, CLIOptions, ChatConfig, } from '../types.js';
-import { TheaterChatClient, type ActorLifecycleCallbacks } from '../theater-client.js';
+import { TheaterChatClient, type ActorLifecycleCallbacks, formatConnectionError } from '../theater-client.js';
 import { formatActorError } from '../error-parser.js';
 import { formatTheaterError, getServerAddress, shouldExitOnError } from '../enhanced-error-parser.js';
 import { autoSaveChatSession } from '../config-resolver.js';
@@ -343,6 +343,26 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
 
         const channelStream = await client.openChannelStream(session.chatActorId);
 
+        // Add error handling for channel stream
+        channelStream.onError((error) => {
+          console.error('Channel stream error:', error);
+          const errorMessage = formatConnectionError(error);
+          addMessage('error', `Channel error: ${errorMessage}`);
+          setIsGenerating(false);
+        });
+
+        channelStream.onClose(() => {
+          console.log('Channel stream closed');
+          if (!actorHasExited) {
+            addMessage('system', 'Connection to chat actor closed');
+            setActorHasExited(true);
+          }
+        });
+
+        // Channel stream opened successfully
+        console.log('Channel stream opened successfully');
+        setSetupMessage('Channel connected');
+
         // Auto-save chat session metadata
         try {
           setSetupMessage('Saving chat session...');
@@ -444,8 +464,13 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
 
       } catch (error) {
         setSetupStatus('error');
-        const serverAddress = getServerAddress(options);
-        const errorMessage = formatTheaterError(error, serverAddress);
+        // Use enhanced connection error formatting first
+        let errorMessage = formatConnectionError(error);
+        // Fall back to theater error formatting if not a connection error
+        if (errorMessage === (error instanceof Error ? error.message : String(error))) {
+          const serverAddress = getServerAddress(options);
+          errorMessage = formatTheaterError(error, serverAddress);
+        }
         setSetupMessage(`Error: ${errorMessage}`);
         setIsGenerating(false);
         
