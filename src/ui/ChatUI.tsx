@@ -35,13 +35,13 @@ interface ChatAppProps {
  */
 function formatEventForDisplay(event: any): string {
   const timestamp = new Date().toLocaleTimeString();
-  
+
   try {
     // Handle different event types
     if (event.type) {
       return `[${timestamp}] ${event.type}: ${JSON.stringify(event, null, 0).slice(0, 100)}...`;
     }
-    
+
     // Fallback for unknown event structure
     const eventStr = JSON.stringify(event, null, 0);
     return `[${timestamp}] Event: ${eventStr.slice(0, 80)}${eventStr.length > 80 ? '...' : ''}`;
@@ -313,7 +313,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
             // Add event to setup log
             const formattedEvent = formatEventForDisplay(message);
             setSetupEvents(prev => [...prev, formattedEvent]);
-            
+
             if (options.verbose) {
               console.log(`Chat actor event: ${JSON.stringify(message, null, 2)}`);
             }
@@ -360,7 +360,6 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         });
 
         // Channel stream opened successfully
-        console.log('Channel stream opened successfully');
         setSetupMessage('Channel connected');
 
         // Auto-save chat session metadata
@@ -473,7 +472,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         }
         setSetupMessage(`Error: ${errorMessage}`);
         setIsGenerating(false);
-        
+
         // Exit immediately if this is a connection error
         if (shouldExitOnError(error)) {
           await cleanup();
