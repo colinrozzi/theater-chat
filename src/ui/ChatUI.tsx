@@ -439,6 +439,8 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         await client.startWorkflow(session.domainActor);
 
         setSetupStatus('ready');
+        // Clear setup events now that we're ready
+        setSetupEvents([]);
 
       } catch (error) {
         setSetupStatus('error');
@@ -515,6 +517,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
             <Spinner type="dots" />
             <Text color="cyan"> {setupMessage}</Text>
           </Box>
+          <SetupEventLog events={setupEvents} />
         </Box>
       ) : (
         <>
