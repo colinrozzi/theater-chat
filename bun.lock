@@ -10,7 +10,7 @@
         "ink-spinner": "^5.0.0",
         "ink-text-input": "^5.0.1",
         "react": "^18.2.0",
-        "terminal-chat-ui": "^1.0.2",
+        "terminal-chat-ui": "^1.0.3",
         "theater-client": "^0.1.1",
         "uuid": "^9.0.1",
         "zod": "^3.x.x",
@@ -143,7 +143,7 @@
 
     "supports-color": ["supports-color@8.1.1", "", { "dependencies": { "has-flag": "^4.0.0" } }, "sha512-MpUEN2OodtUzxvKQl72cUF7RQ5EiHsGvSsVG0ia9c5RbWGL2CI4C7EpPS8UTBIplnlzZiNuV56w+FuNxy3ty2Q=="],
 
-    "terminal-chat-ui": ["terminal-chat-ui@1.0.2", "", { "dependencies": { "chalk": "^5.3.0" }, "peerDependencies": { "ink": "^4.4.1", "ink-spinner": "^5.0.0", "react": "^18.2.0" } }, "sha512-dxXmM4RSPghbuJFYeZsxP8WZHnA/M4LRhWQ+gRlwWsbecm6hDHrT2cHA0NZYTx8NTbh+lWse9w8ANrYsuEra5Q=="],
+    "terminal-chat-ui": ["terminal-chat-ui@1.0.3", "", { "dependencies": { "chalk": "^5.3.0" }, "peerDependencies": { "ink": "^4.4.1", "ink-spinner": "^5.0.0", "react": "^18.2.0" } }, "sha512-vHi3ljbUsgTMrSKUCsERMnZXnop2dJ6O9QKHz2xP51d0tQkjl0Ua6WsjkL7AWteEBv+FbiXduMOW7iW8SuVyuQ=="],
 
     "theater-client": ["theater-client@0.1.1", "", {}, "sha512-rztONLcrRxdb14t0t5RyQ3CaEBCbiTMI/cstemuYEBDKpITReGZRRYRpInLBn/gTCk15rVZ32rQjIVqt7RCT7Q=="],
 
