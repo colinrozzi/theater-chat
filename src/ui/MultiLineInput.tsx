@@ -396,7 +396,8 @@ export function MultiLineInput({
               const isCurrentLine = index === cursorRow && cursorRow < maxHeight;
 
               if (!isCurrentLine) {
-                return <Text key={index}>{line}</Text>;
+                // Ensure empty lines render as visible empty lines
+                return <Text key={index}>{line.length === 0 ? ' ' : line}</Text>;
               }
 
               const beforeCursor = line.slice(0, cursorCol);
