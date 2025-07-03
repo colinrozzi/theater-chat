@@ -31,6 +31,49 @@ interface ChatAppProps {
 }
 
 /**
+ * Format actor events for user-friendly display
+ */
+function formatEventForDisplay(event: any): string {
+  const timestamp = new Date().toLocaleTimeString();
+  
+  try {
+    // Handle different event types
+    if (event.type) {
+      return `[${timestamp}] ${event.type}: ${JSON.stringify(event, null, 0).slice(0, 100)}...`;
+    }
+    
+    // Fallback for unknown event structure
+    const eventStr = JSON.stringify(event, null, 0);
+    return `[${timestamp}] Event: ${eventStr.slice(0, 80)}${eventStr.length > 80 ? '...' : ''}`;
+  } catch (error) {
+    return `[${timestamp}] Event: [Unable to parse]`;
+  }
+}
+
+/**
+ * Setup event log component
+ */
+function SetupEventLog({ events }: { events: string[] }) {
+  if (events.length === 0) {
+    return null;
+  }
+
+  // Show last 8 events to avoid cluttering the screen
+  const recentEvents = events.slice(-8);
+
+  return (
+    <Box flexDirection="column" marginTop={1} paddingLeft={2}>
+      <Text color="gray" dimColor>Recent events:</Text>
+      {recentEvents.map((event, index) => (
+        <Text key={index} color="cyan" dimColor>
+          {event}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+/**
  * Simple loading indicator component
  */
 function LoadingIndicator() {
@@ -131,6 +174,7 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
   const [toolDisplayMode, setToolDisplayMode] = useState<ToolDisplayMode>('minimal');
   const [showHelp, setShowHelp] = useState<boolean>(false);
   const [actorHasExited, setActorHasExited] = useState<boolean>(false);
+  const [setupEvents, setSetupEvents] = useState<string[]>([]);
 
   // Enable raw mode for input capture
   useEffect(() => {
@@ -266,15 +310,23 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         // which we can use to listen for events
         chatActor.subscribe().then((stream) => {
           stream.onEvent((message) => {
+            // Add event to setup log
+            const formattedEvent = formatEventForDisplay(message);
+            setSetupEvents(prev => [...prev, formattedEvent]);
+            
             if (options.verbose) {
               console.log(`Chat actor event: ${JSON.stringify(message, null, 2)}`);
             }
           });
 
           stream.onError((error) => {
+            const errorEvent = `[${new Date().toLocaleTimeString()}] ERROR: ${error instanceof Error ? error.message : String(error)}`;
+            setSetupEvents(prev => [...prev, errorEvent]);
             console.error(`Chat actor error: ${error instanceof Error ? error.message : String(error)}`);
           });
         }).catch((error) => {
+          const errorEvent = `[${new Date().toLocaleTimeString()}] SUBSCRIPTION ERROR: ${error instanceof Error ? error.message : String(error)}`;
+          setSetupEvents(prev => [...prev, errorEvent]);
           console.error(`Failed to subscribe to chat actor events: ${error instanceof Error ? error.message : String(error)}`);
         });
 
