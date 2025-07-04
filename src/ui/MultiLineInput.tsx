@@ -19,6 +19,89 @@ export interface MultiLineInputProps {
   verbose?: boolean;
 }
 
+const HELP_COMMANDS = {
+  navigation: {
+    'H': 'Move left',
+    'j': 'Move down',
+    'k': 'Move up',
+    'l': 'Move right',
+    '0': 'Move to beginning of line',
+    '$': 'Move to end of line',
+    'w': 'Move to next word',
+    'b': 'Move to previous word',
+    '↑↓←→': 'Arrow keys also work'
+  },
+  editing: {
+    'i': 'Enter insert mode at cursor',
+    'a': 'Enter insert mode after cursor',
+    'I': 'Enter insert mode at beginning of line',
+    'A': 'Enter insert mode at end of line',
+    'o': 'Open new line below and enter insert mode',
+    'O': 'Open new line above and enter insert mode'
+  },
+  other: {
+    'Enter': 'Submit message',
+    'Esc': 'Exit help / Enter command mode',
+    'h': 'Show this help panel (command mode)',
+    'F1': 'Toggle help panel (any mode)'
+  }
+};
+
+function HelpPanel() {
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor="blue"
+      paddingLeft={1}
+      paddingRight={1}
+      paddingTop={1}
+      paddingBottom={1}
+      width="100%"
+    >
+      <Text color="blue" bold>
+        Command Mode Help
+      </Text>
+      <Text color="gray" dimColor>
+        Press Esc to close this help panel
+      </Text>
+      <Box flexDirection="column" marginTop={1}>
+        <Text color="yellow" bold>
+          Navigation:
+        </Text>
+        {Object.entries(HELP_COMMANDS.navigation).map(([key, desc]) => (
+          <Text key={key}>
+            <Text color="cyan">{key.padEnd(6)}</Text>
+            <Text color="white">{desc}</Text>
+          </Text>
+        ))}
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text color="yellow" bold>
+          Editing:
+        </Text>
+        {Object.entries(HELP_COMMANDS.editing).map(([key, desc]) => (
+          <Text key={key}>
+            <Text color="cyan">{key.padEnd(6)}</Text>
+            <Text color="white">{desc}</Text>
+          </Text>
+        ))}
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text color="yellow" bold>
+          Other:
+        </Text>
+        {Object.entries(HELP_COMMANDS.other).map(([key, desc]) => (
+          <Text key={key}>
+            <Text color="cyan">{key.padEnd(6)}</Text>
+            <Text color="white">{desc}</Text>
+          </Text>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
 /**
  * Advanced multi-line input with vim-style modal editing and cursor management
  */
@@ -39,6 +122,7 @@ export function MultiLineInput({
   // Use internal state if not controlled
   const [internalContent, setInternalContent] = useState('');
   const [internalCursorPosition, setInternalCursorPosition] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Determine if we're in controlled mode
   const isControlled = onContentChange !== undefined;
@@ -146,7 +230,17 @@ export function MultiLineInput({
     if (disabled) return;
 
     if (key.escape) {
+      if (showHelp) {
+        setShowHelp(false);
+        return;
+      }
       onModeChange?.('command');
+      return;
+    }
+    
+    // F1 key can toggle help from any mode
+    if (key.f1) {
+      setShowHelp(!showHelp);
       return;
     }
 
@@ -165,15 +259,21 @@ export function MultiLineInput({
 
     // Command mode key handling
     if (mode === 'command') {
-      // Vim-style navigation
-      if (input === 'h') {
-        // h - move left
-        moveCursor(actualCursorPosition - 1);
+      // If help is showing, only allow escape to close it
+      if (showHelp) {
         return;
       }
-      if (input === 'l') {
-        // l - move right
-        moveCursor(actualCursorPosition + 1);
+      
+      // Help command
+      if (input === 'h') {
+        setShowHelp(true);
+        return;
+      }
+      
+      // Vim-style navigation (h is now help, so we'll use H for left or rely on arrow keys)
+      if (input === 'H') {
+        // H - move left (since h is now help)
+        moveCursor(actualCursorPosition - 1);
         return;
       }
       if (input === 'j') {
@@ -187,6 +287,11 @@ export function MultiLineInput({
           const newPos = nextLineStart + Math.min(targetCol, nextLineLength);
           moveCursor(newPos);
         }
+        return;
+      }
+      if (input === 'l') {
+        // l - move right
+        moveCursor(actualCursorPosition + 1);
         return;
       }
       if (input === 'k') {
@@ -376,6 +481,11 @@ export function MultiLineInput({
 
   return (
     <Box flexDirection="column" width="100%">
+      {showHelp && (
+        <Box marginBottom={1}>
+          <HelpPanel />
+        </Box>
+      )}
       <Box
         borderStyle="round"
         borderColor={disabled ? "gray" : "gray"}
@@ -429,12 +539,13 @@ export function MultiLineInput({
 
       <Box justifyContent="space-between">
         <Text color={mode === 'insert' ? 'green' : 'blue'} dimColor>
-          {mode?.toUpperCase() || 'INSERT'}
+          {showHelp ? 'HELP' : (mode?.toUpperCase() || 'INSERT')}
         </Text>
         <Text color="gray" dimColor>
           Line {cursorRow + 1}, Col {cursorCol + 1}
           {lines.length > 1 && ` • ${lines.length} lines`}
           {!isEmpty && ` • ${content.length} chars`}
+          {showHelp && ' • Press Esc to close help'}
         </Text>
       </Box>
     </Box>
