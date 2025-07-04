@@ -31,22 +31,88 @@ interface ChatAppProps {
 }
 
 /**
- * Format actor events for user-friendly display
+ * Format byte array to hex string with optional shortening
+ */
+function formatHash(hash: number[], shorten: boolean = true): string {
+  const bytes = new Uint8Array(hash);
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  if (shorten && hex.length > 16) {
+    return `${hex.slice(0, 8)}..${hex.slice(-8)}`;
+  }
+  return hex;
+}
+
+/**
+ * Format timestamp for event display
+ */
+function formatEventTimestamp(timestamp: number): string {
+  const date = new Date(timestamp * 1000); // Convert from seconds to milliseconds
+  return date.toISOString().replace('T', ' ').replace('Z', '');
+}
+
+/**
+ * Parse UTF-8 data from byte array
+ */
+function parseEventData(data: number[]): string | null {
+  try {
+    const bytes = new Uint8Array(data);
+    const text = new TextDecoder('utf-8').decode(bytes);
+    // Check if it's printable text (basic heuristic)
+    if (text.length > 0 && /^[\x20-\x7E\s]*$/.test(text)) {
+      return text;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format actor events for user-friendly display (theater CLI style)
  */
 function formatEventForDisplay(event: any): string {
-  const timestamp = new Date().toLocaleTimeString();
-
   try {
-    // Handle different event types
-    if (event.type) {
-      return `[${timestamp}] ${event.type}: ${JSON.stringify(event, null, 0).slice(0, 100)}...`;
+    // Handle ChainEvent structure
+    if (event.event_type && event.timestamp && event.hash) {
+      const timestamp = formatEventTimestamp(event.timestamp);
+      const eventType = event.event_type;
+
+      // Create the main event line
+      let result = `EVENT [${timestamp}] ${eventType}`;
+
+      // Add description if available
+      if (event.description) {
+        result += `\n   ${event.description}`;
+      } else if (event.data && event.data.length > 0) {
+        // Try to parse data as text
+        const text = parseEventData(event.data);
+        if (text) {
+          // Truncate long text
+          const maxLength = 100;
+          const displayText = text.length > maxLength ?
+            `${text.slice(0, maxLength)}...` : text;
+          result += `\n   ${displayText}`;
+        } else {
+          result += `\n   ${event.data.length} bytes of binary data`;
+        }
+      }
+
+      return result;
     }
 
-    // Fallback for unknown event structure
+    // Handle other event types with fallback
+    const timestamp = new Date().toLocaleTimeString();
+    if (event.type) {
+      return `EVENT [${timestamp}] ${event.type}\n   ${JSON.stringify(event, null, 0).slice(0, 100)}...`;
+    }
+
+    // Final fallback
     const eventStr = JSON.stringify(event, null, 0);
-    return `[${timestamp}] Event: ${eventStr.slice(0, 80)}${eventStr.length > 80 ? '...' : ''}`;
+    return `EVENT [${timestamp}] unknown\n   ${eventStr.slice(0, 80)}${eventStr.length > 80 ? '...' : ''}`;
+
   } catch (error) {
-    return `[${timestamp}] Event: [Unable to parse]`;
+    const timestamp = new Date().toLocaleTimeString();
+    return `EVENT [${timestamp}] parse-error\n   [Unable to parse event]`;
   }
 }
 
@@ -64,11 +130,43 @@ function SetupEventLog({ events }: { events: string[] }) {
   return (
     <Box flexDirection="column" marginTop={1} paddingLeft={2}>
       <Text color="gray" dimColor>Recent events:</Text>
-      {recentEvents.map((event, index) => (
-        <Text key={index} color="cyan" dimColor>
-          {event}
-        </Text>
-      ))}
+      {recentEvents.map((event, index) => {
+        // Split multi-line events and render each line
+        const lines = event.split('\n');
+        return (
+          <Box key={index} flexDirection="column">
+            {lines.map((line, lineIndex) => {
+              // First line is the main event line
+              if (lineIndex === 0) {
+                // Parse event type for color coding
+                const eventTypeMatch = line.match(/EVENT \[.*?\] ([^\s]+)/);
+                const eventType = eventTypeMatch ? eventTypeMatch[1] : '';
+
+                // Color based on event type category
+                let color = 'cyan';
+                if (eventType && eventType.includes('runtime')) color = 'blue';
+                else if (eventType && eventType.includes('store')) color = 'green';
+                else if (eventType && eventType.includes('message')) color = 'magenta';
+                else if (eventType && eventType.includes('error')) color = 'red';
+                else if (eventType && eventType.includes('wasm')) color = 'yellow';
+
+                return (
+                  <Text key={lineIndex} color={color} dimColor>
+                    {line}
+                  </Text>
+                );
+              } else {
+                // Subsequent lines are descriptions/details
+                return (
+                  <Text key={lineIndex} color="white" dimColor>
+                    {line}
+                  </Text>
+                );
+              }
+            })}
+          </Box>
+        );
+      })}
     </Box>
   );
 }
