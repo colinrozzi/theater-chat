@@ -5,6 +5,20 @@
 import { Box, Text, useInput } from 'ink';
 import { useCallback, useState } from 'react';
 
+type HelpCommandSection = Record<string, string>;
+
+type HelpCommands = {
+  command: {
+    navigation: HelpCommandSection;
+    editing: HelpCommandSection;
+    other: HelpCommandSection;
+  };
+  insert: {
+    editing: HelpCommandSection;
+    other: HelpCommandSection;
+  };
+};
+
 export interface MultiLineInputProps {
   placeholder?: string;
   onSubmit: (content: string) => void;
@@ -19,7 +33,7 @@ export interface MultiLineInputProps {
   verbose?: boolean;
 }
 
-const HELP_COMMANDS = {
+const HELP_COMMANDS: HelpCommands = {
   command: {
     navigation: {
       'H': 'Move left',
@@ -89,7 +103,7 @@ function HelpPanel({ mode }: { mode: 'insert' | 'command' }) {
           <Text color="yellow" bold>
             {sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}:
           </Text>
-          {Object.entries(sectionCommands).map(([key, desc]) => (
+          {Object.entries(sectionCommands as HelpCommandSection).map(([key, desc]) => (
             <Text key={key}>
               <Text color="cyan">{key.padEnd(10)}</Text>
               <Text color="white">{desc}</Text>
