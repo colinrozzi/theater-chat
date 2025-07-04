@@ -497,11 +497,6 @@ export function MultiLineInput({
 
   return (
     <Box flexDirection="column" width="100%">
-      {showHelp && (
-        <Box marginBottom={1}>
-          <HelpPanel mode={mode} />
-        </Box>
-      )}
       <Box
         borderStyle="round"
         borderColor={disabled ? "gray" : "gray"}
@@ -556,7 +551,6 @@ export function MultiLineInput({
       <Box justifyContent="space-between">
         <Text color={mode === 'insert' ? 'green' : 'blue'} dimColor>
           {mode?.toUpperCase() || 'INSERT'}
-          {showHelp && ' + HELP'}
         </Text>
         <Text color="gray" dimColor>
           Line {cursorRow + 1}, Col {cursorCol + 1}
@@ -565,6 +559,12 @@ export function MultiLineInput({
           {showHelp && ' • h to toggle help'}
         </Text>
       </Box>
+
+      {showHelp && (
+        <Box marginBottom={1}>
+          <HelpPanel mode={mode} />
+        </Box>
+      )}
     </Box>
   );
 }
