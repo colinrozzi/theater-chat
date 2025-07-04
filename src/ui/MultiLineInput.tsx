@@ -78,7 +78,6 @@ const HELP_COMMANDS: HelpCommands = {
 function HelpPanel({ mode }: { mode: 'insert' | 'command' }) {
   const commands = HELP_COMMANDS[mode];
   const modeColor = mode === 'insert' ? 'green' : 'blue';
-  const modeTitle = mode === 'insert' ? 'Insert Mode' : 'Command Mode';
 
   return (
     <Box
@@ -92,10 +91,7 @@ function HelpPanel({ mode }: { mode: 'insert' | 'command' }) {
       width="100%"
     >
       <Text color={modeColor} bold>
-        {modeTitle} Help
-      </Text>
-      <Text color="gray" dimColor>
-        Help overlay - continue editing normally
+        {mode.toUpperCase()} Help
       </Text>
 
       {Object.entries(commands).map(([sectionName, sectionCommands]) => (
