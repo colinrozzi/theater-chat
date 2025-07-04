@@ -20,84 +20,83 @@ export interface MultiLineInputProps {
 }
 
 const HELP_COMMANDS = {
-  navigation: {
-    'H': 'Move left',
-    'j': 'Move down',
-    'k': 'Move up',
-    'l': 'Move right',
-    '0': 'Move to beginning of line',
-    '$': 'Move to end of line',
-    'w': 'Move to next word',
-    'b': 'Move to previous word',
-    '↑↓←→': 'Arrow keys also work'
+  command: {
+    navigation: {
+      'H': 'Move left',
+      'j': 'Move down',
+      'k': 'Move up',
+      'l': 'Move right',
+      '0': 'Beginning of line',
+      '$': 'End of line',
+      'w': 'Next word',
+      'b': 'Previous word',
+      '↑↓←→': 'Arrow keys'
+    },
+    editing: {
+      'i': 'Insert at cursor',
+      'a': 'Insert after cursor',
+      'I': 'Insert at line start',
+      'A': 'Insert at line end',
+      'o': 'New line below',
+      'O': 'New line above'
+    },
+    other: {
+      'Enter': 'Submit message',
+      'h': 'Toggle help'
+    }
   },
-  editing: {
-    'i': 'Enter insert mode at cursor',
-    'a': 'Enter insert mode after cursor',
-    'I': 'Enter insert mode at beginning of line',
-    'A': 'Enter insert mode at end of line',
-    'o': 'Open new line below and enter insert mode',
-    'O': 'Open new line above and enter insert mode'
-  },
-  other: {
-    'Enter': 'Submit message',
-    'Esc': 'Exit help / Enter command mode',
-    'h': 'Show this help panel (command mode)',
-    'F1': 'Toggle help panel (any mode)'
+  insert: {
+    editing: {
+      'Type': 'Insert text',
+      'Enter': 'New line',
+      'Backspace': 'Delete previous',
+      '↑↓←→': 'Navigate'
+    },
+    other: {
+      'Esc': 'Command mode',
+      'Ctrl+Enter': 'Submit message',
+      'Ctrl+h': 'Toggle help',
+      'F1': 'Toggle help'
+    }
   }
 };
 
-function HelpPanel() {
+function HelpPanel({ mode }: { mode: 'insert' | 'command' }) {
+  const commands = HELP_COMMANDS[mode];
+  const modeColor = mode === 'insert' ? 'green' : 'blue';
+  const modeTitle = mode === 'insert' ? 'Insert Mode' : 'Command Mode';
+
   return (
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor="blue"
+      borderColor={modeColor}
       paddingLeft={1}
       paddingRight={1}
       paddingTop={1}
       paddingBottom={1}
       width="100%"
     >
-      <Text color="blue" bold>
-        Command Mode Help
+      <Text color={modeColor} bold>
+        {modeTitle} Help
       </Text>
       <Text color="gray" dimColor>
-        Press Esc to close this help panel
+        Help overlay - continue editing normally
       </Text>
-      <Box flexDirection="column" marginTop={1}>
-        <Text color="yellow" bold>
-          Navigation:
-        </Text>
-        {Object.entries(HELP_COMMANDS.navigation).map(([key, desc]) => (
-          <Text key={key}>
-            <Text color="cyan">{key.padEnd(6)}</Text>
-            <Text color="white">{desc}</Text>
+
+      {Object.entries(commands).map(([sectionName, sectionCommands]) => (
+        <Box key={sectionName} flexDirection="column" marginTop={1}>
+          <Text color="yellow" bold>
+            {sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}:
           </Text>
-        ))}
-      </Box>
-      <Box flexDirection="column" marginTop={1}>
-        <Text color="yellow" bold>
-          Editing:
-        </Text>
-        {Object.entries(HELP_COMMANDS.editing).map(([key, desc]) => (
-          <Text key={key}>
-            <Text color="cyan">{key.padEnd(6)}</Text>
-            <Text color="white">{desc}</Text>
-          </Text>
-        ))}
-      </Box>
-      <Box flexDirection="column" marginTop={1}>
-        <Text color="yellow" bold>
-          Other:
-        </Text>
-        {Object.entries(HELP_COMMANDS.other).map(([key, desc]) => (
-          <Text key={key}>
-            <Text color="cyan">{key.padEnd(6)}</Text>
-            <Text color="white">{desc}</Text>
-          </Text>
-        ))}
-      </Box>
+          {Object.entries(sectionCommands).map(([key, desc]) => (
+            <Text key={key}>
+              <Text color="cyan">{key.padEnd(10)}</Text>
+              <Text color="white">{desc}</Text>
+            </Text>
+          ))}
+        </Box>
+      ))}
     </Box>
   );
 }
@@ -230,14 +229,11 @@ export function MultiLineInput({
     if (disabled) return;
 
     if (key.escape) {
-      if (showHelp) {
-        setShowHelp(false);
-        return;
-      }
+      // Escape always goes to command mode, but doesn't close help
       onModeChange?.('command');
       return;
     }
-    
+
     // F1 key can toggle help from any mode
     if (key.f1) {
       setShowHelp(!showHelp);
@@ -246,6 +242,11 @@ export function MultiLineInput({
 
     // Handle return key for both modes
     if (key.return) {
+      if (key.ctrl) {
+        // Ctrl+Enter submits in any mode
+        handleSubmit();
+        return;
+      }
       if (mode === 'command') {
         // In command mode, plain Return submits
         handleSubmit();
@@ -259,17 +260,12 @@ export function MultiLineInput({
 
     // Command mode key handling
     if (mode === 'command') {
-      // If help is showing, only allow escape to close it
-      if (showHelp) {
-        return;
-      }
-      
       // Help command
       if (input === 'h') {
-        setShowHelp(true);
+        setShowHelp(!showHelp);
         return;
       }
-      
+
       // Vim-style navigation (h is now help, so we'll use H for left or rely on arrow keys)
       if (input === 'H') {
         // H - move left (since h is now help)
@@ -307,7 +303,7 @@ export function MultiLineInput({
         }
         return;
       }
-      
+
       // Vim-style line navigation
       if (input === '0') {
         // 0 - move to beginning of line
@@ -323,7 +319,7 @@ export function MultiLineInput({
         moveCursor(lineEnd);
         return;
       }
-      
+
       // More vim-style commands
       if (input === 'w') {
         // w - move to next word
@@ -344,7 +340,7 @@ export function MultiLineInput({
         }
         return;
       }
-      
+
       // Insert mode commands
       if (input === 'i') {
         // i - enter insert mode at cursor
@@ -381,7 +377,7 @@ export function MultiLineInput({
         const after = actualContent.slice(insertPos);
         const newContent = before + '\n' + after;
         const newCursor = insertPos + 1;
-        
+
         if (isControlled) {
           onContentChange?.(newContent);
           onCursorChange?.(newCursor);
@@ -400,7 +396,7 @@ export function MultiLineInput({
         const after = actualContent.slice(insertPos);
         const newContent = before + '\n' + after;
         const newCursor = insertPos;
-        
+
         if (isControlled) {
           onContentChange?.(newContent);
           onCursorChange?.(newCursor);
@@ -411,7 +407,7 @@ export function MultiLineInput({
         onModeChange?.('insert');
         return;
       }
-      
+
       // Arrow keys still work in command mode
       if (key.leftArrow) {
         moveCursor(actualCursorPosition - 1);
@@ -421,7 +417,7 @@ export function MultiLineInput({
         moveCursor(actualCursorPosition + 1);
         return;
       }
-      
+
       // Ignore other input in command mode
       return;
     }
@@ -429,6 +425,12 @@ export function MultiLineInput({
     // Insert mode: Regular characters
     if (input && !key.ctrl && !key.meta) {
       insertText(input);
+      return;
+    }
+
+    // Ctrl+h can toggle help in insert mode
+    if (key.ctrl && input === 'h') {
+      setShowHelp(!showHelp);
       return;
     }
 
@@ -483,7 +485,7 @@ export function MultiLineInput({
     <Box flexDirection="column" width="100%">
       {showHelp && (
         <Box marginBottom={1}>
-          <HelpPanel />
+          <HelpPanel mode={mode} />
         </Box>
       )}
       <Box
@@ -539,13 +541,14 @@ export function MultiLineInput({
 
       <Box justifyContent="space-between">
         <Text color={mode === 'insert' ? 'green' : 'blue'} dimColor>
-          {showHelp ? 'HELP' : (mode?.toUpperCase() || 'INSERT')}
+          {mode?.toUpperCase() || 'INSERT'}
+          {showHelp && ' + HELP'}
         </Text>
         <Text color="gray" dimColor>
           Line {cursorRow + 1}, Col {cursorCol + 1}
           {lines.length > 1 && ` • ${lines.length} lines`}
           {!isEmpty && ` • ${content.length} chars`}
-          {showHelp && ' • Press Esc to close help'}
+          {showHelp && ' • h to toggle help'}
         </Text>
       </Box>
     </Box>
