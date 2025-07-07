@@ -36,7 +36,7 @@ export interface MultiLineInputProps {
 const HELP_COMMANDS: HelpCommands = {
   command: {
     navigation: {
-      'H': 'Move left',
+      'h': 'Move left',
       'j': 'Move down',
       'k': 'Move up',
       'l': 'Move right',
@@ -56,7 +56,7 @@ const HELP_COMMANDS: HelpCommands = {
     },
     other: {
       'Enter': 'Submit message',
-      'h': 'Toggle help'
+      '?': 'Toggle help'
     }
   },
   insert: {
@@ -69,7 +69,7 @@ const HELP_COMMANDS: HelpCommands = {
     other: {
       'Esc': 'Command mode',
       'Ctrl+Enter': 'Submit message',
-      'Ctrl+h': 'Toggle help',
+      'Ctrl+?': 'Toggle help',
       'F1': 'Toggle help'
     }
   }
@@ -271,17 +271,19 @@ export function MultiLineInput({
     // Command mode key handling
     if (mode === 'command') {
       // Help command
-      if (input === 'h') {
+      if (input === '?') {
         setShowHelp(!showHelp);
         return;
       }
-
-      // Vim-style navigation (h is now help, so we'll use H for left or rely on arrow keys)
-      if (input === 'H') {
-        // H - move left (since h is now help)
+      
+      // Vim-style navigation
+      if (input === 'h') {
+        // h - move left
         moveCursor(actualCursorPosition - 1);
         return;
       }
+
+
       if (input === 'j') {
         // j - move down
         const currentLineEnd = actualContent.indexOf('\n', actualCursorPosition);
@@ -438,8 +440,8 @@ export function MultiLineInput({
       return;
     }
 
-    // Ctrl+h can toggle help in insert mode
-    if (key.ctrl && input === 'h') {
+    // Ctrl+? can toggle help in insert mode
+    if (key.ctrl && input === '?') {
       setShowHelp(!showHelp);
       return;
     }
@@ -552,7 +554,7 @@ export function MultiLineInput({
           Line {cursorRow + 1}, Col {cursorCol + 1}
           {lines.length > 1 && ` • ${lines.length} lines`}
           {!isEmpty && ` • ${content.length} chars`}
-          {showHelp && ' • h to toggle help'}
+          {showHelp && ' • ? to toggle help'}
         </Text>
       </Box>
 
