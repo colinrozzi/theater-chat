@@ -73,7 +73,7 @@ function scanDirectory(dir: string, prefix: string, source: 'local' | 'global', 
       if (!item.name) {
         continue;
       }
-      
+
       const fullPath = join(dir, item.name);
       if (item.isDirectory()) {
         const subPrefix = prefix ? `${prefix}/${item.name}` : item.name;
@@ -106,9 +106,10 @@ export function initConfigs(target: 'local' | 'global' | 'both' = 'local'): void
       manifest_path: "/Users/colinrozzi/work/actor-registry/chat-state-proxy/manifest.toml",
       initial_state: {
         config: {
-          model_config: {
+          model_proxy: {
+            manifest_path: "https://github.com/colinrozzi/anthropic-proxy/releases/latest/download/manifest.toml",
+            init_state: null,
             model: "claude-sonnet-4-20250514",
-            provider: "anthropic"
           },
           temperature: 1,
           max_tokens: 8192,
