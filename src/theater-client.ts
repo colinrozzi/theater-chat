@@ -67,27 +67,27 @@ export function formatConnectionError(error: any): string {
   if (error instanceof ConnectionError) {
     const timeStr = new Date(error.context.timestamp).toLocaleTimeString();
     let message = `Connection lost at ${timeStr} while: ${error.context.operation}`;
-    
+
     if (error.context.actor) {
       message += `\nActor: ${error.context.actor}`;
     }
-    
+
     if (error.context.details) {
       const details = JSON.stringify(error.context.details, null, 2);
       message += `\nOperation details: ${details}`;
     }
-    
+
     message += `\nUnderlying error: ${error.originalError.message}`;
-    
+
     // Add helpful suggestions
     message += '\n\nThis usually means:';
     message += '\n• The Theater server closed the connection unexpectedly';
     message += '\n• The actor completed and shut down during the operation';
     message += '\n• Network connectivity was lost';
-    
+
     return message;
   }
-  
+
   // Fall back to original error formatting
   return error instanceof Error ? error.message : String(error);
 }
@@ -258,8 +258,8 @@ export class TheaterChatClient {
         const messageData = {
           type: 'AddMessage',
           message: {
-            role: 'user',
-            content: [{ type: 'text', text: message }]
+            role: 'User',
+            content: [{ 'Text': message }]
           }
         };
 

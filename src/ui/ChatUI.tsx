@@ -494,15 +494,13 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
         setSetupStatus('loading_actor');
         setSetupMessage('Loading chat actor...');
 
-        // Set up simplified message handler
         channelStream.onMessage((message) => {
           try {
             const messageText = Buffer.from(message.data).toString('utf8');
             const parsedMessage = JSON.parse(messageText);
-
             if (parsedMessage.type === 'chat_message' && parsedMessage.message) {
               const messageEntry = parsedMessage?.message?.entry;
-              const isUserMessage = messageEntry?.Message?.role === 'user';
+              const isUserMessage = messageEntry?.Message?.role === 'User'; // Note: capital 'U'
 
               // Only process assistant messages
               if (!isUserMessage) {
@@ -511,36 +509,70 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
 
                 if (Array.isArray(messageContent)) {
                   let textContent = '';
-
                   // Process all content blocks
                   for (const block of messageContent) {
-                    if (block?.type === 'text' && block?.text) {
-                      textContent += block.text;
-
-                      // Add text content as a regular message if we have any
-                      if (textContent.trim()) {
-                        addMessage('assistant', textContent);
+                    // Handle the new Rust enum format
+                    if (block?.Text) {
+                      // New format: {"Text": "Hello world"}
+                      textContent += block.Text;
+                    } else if (block?.ToolUse) {
+                      // New format: {"ToolUse": {id: "...", name: "...", input: {...}}}
+                      // Note: the field is "input" not "arguments" based on the bindings
+                      const toolUse = block.ToolUse;
+                      addToolMessage(toolUse?.name || 'unknown',
+                        toolUse?.input ? Object.values(toolUse.input) : []);
+                    } else if (block?.ToolResult) {
+                      // New format: {"ToolResult": {tool_use_id: "...", content: {...}, is_error: false}}
+                      const toolResult = block.ToolResult;
+                      console.log('Tool result received:', {
+                        toolUseId: toolResult?.tool_use_id,
+                        content: toolResult?.content,
+                        isError: toolResult?.is_error
+                      });
+                      // You might want to display tool results in the UI
+                      if (toolResult?.content && !toolResult?.is_error) {
+                        // Handle successful tool result - content is JsonData (Vec<u8>)
+                        // You may need to decode this depending on how it's encoded
                       }
+                    }
+
+                    // Legacy support - remove this block once fully migrated
+                    else if (block?.type === 'text' && block?.text) {
+                      // Old format: {"type": "text", "text": "Hello world"}
+                      textContent += block.text;
                     } else if (block?.type === 'tool_use') {
-                      // Add tool message immediately
+                      // Old format: {"type": "tool_use", "name": "...", "input": {...}}
                       addToolMessage(block?.name || 'unknown',
                         block?.input ? Object.values(block.input) : []);
                     }
+                  }
+
+                  // Add text content as a regular message if we have any
+                  if (textContent.trim()) {
+                    addMessage('assistant', textContent);
                   }
                 } else if (typeof messageContent === 'string' && messageContent.trim()) {
                   // Add string content as a regular message
                   addMessage('assistant', messageContent);
                 }
 
-                // Check if we're done generating
-                if (stopReason === 'end_turn') {
+                // Check if we're done generating - handle new enum format
+                if (stopReason === 'EndTurn' || stopReason === 'end_turn') {
                   setIsGenerating(false);
                 }
               } else {
                 // Add user message directly
-                //console.log('User message received:', messageEntry?.Message?.content);
-                //console.log('User message text:', messageEntry?.Message?.content[0]?.text);
-                addMessage('user', messageEntry?.Message?.content[0]?.text || '');
+                // Handle new format: content is array of {"Text": "..."} objects
+                const content = messageEntry?.Message?.content;
+                if (Array.isArray(content) && content.length > 0) {
+                  // Extract text from first content block
+                  const firstBlock = content[0];
+                  const userText = firstBlock?.Text || firstBlock?.text || ''; // Support both formats
+                  addMessage('user', userText);
+                } else {
+                  // Fallback for other formats
+                  addMessage('user', content || '');
+                }
               }
             }
           } catch (error) {
