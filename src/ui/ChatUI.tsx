@@ -519,20 +519,59 @@ function ChatApp({ options, config, onCleanupReady }: ChatAppProps) {
                       // New format: {"ToolUse": {id: "...", name: "...", input: {...}}}
                       // Note: the field is "input" not "arguments" based on the bindings
                       const toolUse = block.ToolUse;
-                      addToolMessage(toolUse?.name || 'unknown',
-                        toolUse?.input ? Object.values(toolUse.input) : []);
+
+                      
+                      // Decode any byte arrays in the input before displaying
+                      let decodedInputValues: any[] = [];
+                      if (toolUse?.input) {
+                        // Check if input itself is a byte array
+                        if (Array.isArray(toolUse.input) && toolUse.input.length > 0 && 
+                            typeof toolUse.input[0] === 'number' && 
+                            toolUse.input.every((v: any) => typeof v === 'number' && v >= 0 && v <= 255)) {
+                          const decoded = parseEventData(toolUse.input);
+                          decodedInputValues = [decoded || `[${toolUse.input.length} bytes]`];
+                        } else {
+                          // Handle as object with properties that might contain byte arrays
+                          decodedInputValues = Object.values(toolUse.input).map((value: any) => {
+                            // Check if this looks like a byte array (array of numbers)
+                            if (Array.isArray(value) && value.length > 0 && 
+                                typeof value[0] === 'number' && value.every(v => typeof v === 'number' && v >= 0 && v <= 255)) {
+                              const decoded = parseEventData(value);
+                              return decoded || `[${value.length} bytes]`;
+                            }
+                            return value;
+                          });
+                        }
+                      }
+                      
+                      addToolMessage(toolUse?.name || 'unknown', decodedInputValues);
                     } else if (block?.ToolResult) {
                       // New format: {"ToolResult": {tool_use_id: "...", content: {...}, is_error: false}}
                       const toolResult = block.ToolResult;
-                      console.log('Tool result received:', {
-                        toolUseId: toolResult?.tool_use_id,
-                        content: toolResult?.content,
-                        isError: toolResult?.is_error
-                      });
-                      // You might want to display tool results in the UI
+
+                      // Display tool results in the UI
                       if (toolResult?.content && !toolResult?.is_error) {
                         // Handle successful tool result - content is JsonData (Vec<u8>)
-                        // You may need to decode this depending on how it's encoded
+                        // Decode the byte array to readable text
+                        const decodedContent = parseEventData(toolResult.content);
+                        if (decodedContent) {
+                          try {
+                            // Try to parse as JSON for pretty formatting
+                            const jsonData = JSON.parse(decodedContent);
+                            const prettyJson = JSON.stringify(jsonData, null, 2);
+                            addMessage('system', `🔧 Tool Result:\n${prettyJson}`);
+                          } catch {
+                            // If not valid JSON, display as plain text
+                            addMessage('system', `🔧 Tool Result: ${decodedContent}`);
+                          }
+                        } else {
+                          // Fallback: display raw bytes if decoding fails
+                          addMessage('system', `🔧 Tool Result: [${toolResult.content.length} bytes of binary data]`);
+                        }
+                      } else if (toolResult?.is_error) {
+                        // Handle tool errors
+                        const errorContent = toolResult.content ? parseEventData(toolResult.content) : 'Unknown error';
+                        addMessage('error', `❌ Tool Error: ${errorContent || 'Tool execution failed'}`);
                       }
                     }
 
